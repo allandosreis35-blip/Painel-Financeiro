@@ -1,0 +1,2175 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Painel">
+<meta name="theme-color" content="#f5f6fa">
+<link rel="manifest" href="manifest.json">
+<title>Painel Financeiro — Allan</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<style>
+:root {
+  --bg: #f5f6fa;
+  --bg2: #ffffff;
+  --bg3: #f0f1f5;
+  --border: rgba(0,0,0,0.08);
+  --border2: rgba(0,0,0,0.15);
+  --text: #1a1d2e;
+  --muted: #6b7280;
+  --accent: #3b6fd4;
+  --accent2: #0f9a5c;
+  --warn: #d97706;
+  --danger: #dc2626;
+  --purple: #7c3aed;
+  --mono: 'DM Mono', monospace;
+  --sans: 'Sora', sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* LAYOUT */
+.shell { display: flex; min-height: 100vh; }
+.sidebar { width: 220px; background: var(--bg2); border-right: 1px solid var(--border); padding: 0; display: flex; flex-direction: column; position: fixed; top: 0; left: 0; height: 100vh; z-index: 100; }
+.main { margin-left: 220px; flex: 1; padding: 32px; max-width: 1200px; }
+
+/* SIDEBAR */
+.brand { padding: 28px 24px 20px; border-bottom: 1px solid var(--border); }
+.brand-title { font-size: 13px; font-weight: 600; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; }
+.brand-name { font-size: 18px; font-weight: 600; color: var(--text); margin-top: 2px; }
+.brand-name span { color: var(--accent); }
+.nav { padding: 16px 12px; flex: 1; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; cursor: pointer; font-size: 13.5px; color: var(--muted); font-weight: 400; transition: all .15s; margin-bottom: 2px; border: none; background: none; width: 100%; text-align: left; }
+.nav-item:hover { background: var(--bg3); color: var(--text); }
+.nav-item.active { background: rgba(91,141,238,0.12); color: var(--accent); font-weight: 500; }
+.nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+.nav-section { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; padding: 16px 12px 6px; opacity: 0.6; }
+.sidebar-footer { padding: 16px 24px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); }
+
+/* PAGES */
+.page { display: none; animation: fadeIn .2s ease; }
+.page.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* HEADER */
+.page-header { margin-bottom: 28px; }
+.page-header h1 { font-size: 24px; font-weight: 600; color: var(--text); }
+.page-header p { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+/* METRIC CARDS */
+.metrics-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.metric { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
+.metric-label { font-size: 11px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+.metric-value { font-family: var(--mono); font-size: 20px; font-weight: 500; color: var(--text); }
+.metric-value.green { color: var(--accent2); }
+.metric-value.red { color: var(--danger); }
+.metric-value.blue { color: var(--accent); }
+.metric-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+/* CARDS */
+.card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; margin-bottom: 16px; }
+.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.card-title { font-size: 13px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+/* ROWS */
+.row-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+.row-item:last-child { border-bottom: none; }
+.row-name { color: var(--text); }
+.row-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.row-val { font-family: var(--mono); font-weight: 500; text-align: right; }
+
+/* BADGES */
+.badge { font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 6px; letter-spacing: 0.04em; }
+.badge-ok { background: rgba(62,207,142,0.12); color: var(--accent2); }
+.badge-over { background: rgba(224,85,85,0.12); color: var(--danger); }
+.badge-warn { background: rgba(245,166,35,0.12); color: var(--warn); }
+.badge-blue { background: rgba(91,141,238,0.12); color: var(--accent); }
+
+/* PROGRESS */
+.progress { height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; margin-top: 6px; }
+.progress-fill { height: 100%; border-radius: 2px; transition: width .4s; }
+.pct-label { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+/* TABLE */
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; padding: 0 8px 10px 0; border-bottom: 1px solid var(--border2); }
+td { padding: 10px 8px 10px 0; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+td.mono { font-family: var(--mono); }
+td.right { text-align: right; }
+th.right { text-align: right; }
+
+/* FORM */
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 11px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+.form-group input, .form-group select { width: 100%; background: var(--bg3); border: 1px solid var(--border2); border-radius: 8px; padding: 9px 12px; font-size: 13px; font-family: var(--sans); color: var(--text); outline: none; transition: border .15s; }
+.form-group input:focus, .form-group select:focus { border-color: var(--accent); }
+.form-group select option { background: var(--bg3); }
+.form-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; }
+.btn { padding: 9px 18px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-family: var(--sans); font-weight: 500; transition: all .15s; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: #4a7de0; }
+.btn-ghost { background: var(--bg3); color: var(--muted); border: 1px solid var(--border2); }
+.btn-ghost:hover { color: var(--text); border-color: var(--border2); }
+.btn-danger { background: rgba(224,85,85,0.1); color: var(--danger); border: 1px solid rgba(224,85,85,0.2); padding: 4px 8px; font-size: 12px; border-radius: 6px; cursor: pointer; }
+.btn-danger:hover { background: rgba(224,85,85,0.2); }
+
+/* CHIP */
+.chip { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 20px; font-family: var(--mono); font-weight: 500; }
+.chip-pos { background: rgba(62,207,142,0.1); color: var(--accent2); }
+.chip-neg { background: rgba(224,85,85,0.1); color: var(--danger); }
+
+/* CHART WRAP */
+.chart-wrap { position: relative; }
+
+/* MODAL */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200; align-items: center; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal { background: var(--bg2); border: 1px solid var(--border2); border-radius: 16px; padding: 28px; width: 100%; max-width: 520px; }
+.modal h2 { font-size: 18px; font-weight: 600; margin-bottom: 20px; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+/* CDI SIM */
+.sim-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+
+/* SCROLLABLE TABLE */
+.table-scroll { overflow-x: auto; }
+
+/* TAGS */
+.cat-tag { font-size: 10px; padding: 2px 8px; border-radius: 20px; background: rgba(91,141,238,0.1); color: var(--accent); font-weight: 500; }
+
+/* SEK TABLE */
+.sek-status { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+.sek-on { background: var(--accent2); }
+.sek-off { background: var(--bg3); border: 1px solid var(--border2); }
+
+/* HEADER BAR */
+.topbar { position: sticky; top: 0; z-index: 50; background: var(--bg); border-bottom: 1px solid var(--border); padding: 12px 32px; margin: -32px -32px 32px; display: flex; align-items: center; justify-content: space-between; }
+.topbar-title { font-size: 13px; font-weight: 500; color: var(--muted); }
+.topbar-month { font-size: 13px; font-weight: 600; color: var(--text); font-family: var(--mono); }
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 3px; }
+
+@media (max-width: 900px) {
+  .sidebar { width: 60px; }
+  .sidebar .brand-name, .nav-item span, .nav-section, .sidebar-footer { display: none; }
+  .main { margin-left: 60px; padding: 20px; }
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  .form-row { grid-template-columns: 1fr 1fr; }
+  .sim-row { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 550px) {
+  /* Hide desktop sidebar completely */
+  .sidebar { display: none; }
+  .main { margin-left: 0; padding: 16px 14px 90px; }
+  .topbar { padding: 10px 14px; margin: -16px -14px 16px; }
+  .topbar-title { font-size: 14px; font-weight: 600; color: var(--text); }
+
+  /* Bottom nav bar */
+  .bottom-nav {
+    display: flex !important;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    z-index: 100;
+    padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+    justify-content: space-around;
+  }
+  .bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px 10px;
+    color: var(--muted);
+    font-size: 10px;
+    font-family: var(--sans);
+    font-weight: 500;
+    transition: color .15s;
+    min-width: 44px;
+  }
+  .bottom-nav-item svg { width: 22px; height: 22px; }
+  .bottom-nav-item.active { color: var(--accent); }
+
+  .metrics-row { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .metric { padding: 12px; }
+  .metric-value { font-size: 16px; }
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  .form-row { grid-template-columns: 1fr; }
+  .sim-row { grid-template-columns: 1fr; }
+  .card { padding: 14px; }
+  table { font-size: 12px; }
+  th, td { padding: 7px 4px 7px 0; }
+
+  /* Brand in topbar on mobile */
+  .mobile-brand {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .mobile-brand span { color: var(--accent); }
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN OVERLAY -->
+<div id="login-overlay" style="display:flex;position:fixed;inset:0;background:var(--bg);z-index:999;align-items:center;justify-content:center;">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:16px;padding:36px;width:100%;max-width:360px;margin:20px;">
+    <div style="text-align:center;margin-bottom:28px;">
+      <div style="font-size:28px;font-weight:600;color:var(--text)">Al<span style="color:var(--accent)">.</span>lan</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:6px;">Painel Financeiro</div>
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:6px;">Email</label>
+      <input id="login-email" type="email" placeholder="seu@email.com" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;font-size:14px;color:var(--text);font-family:var(--sans);outline:none;box-sizing:border-box;">
+    </div>
+    <div style="margin-bottom:20px;">
+      <label style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:6px;">Senha</label>
+      <input id="login-senha" type="password" placeholder="••••••••" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;font-size:14px;color:var(--text);font-family:var(--sans);outline:none;box-sizing:border-box;">
+    </div>
+    <button onclick="fazerLogin()" style="width:100%;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:600;font-family:var(--sans);cursor:pointer;">Entrar</button>
+    <div id="login-erro" style="margin-top:12px;font-size:12px;color:var(--danger);text-align:center;display:none;"></div>
+  </div>
+</div>
+
+<div id="app-shell" style="display:none">
+<div class="shell">
+
+<!-- BOTTOM NAV (mobile only) -->
+<nav class="bottom-nav" style="display:none">
+  <button class="bottom-nav-item active" onclick="nav('resumo')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+    Resumo
+  </button>
+  <button class="bottom-nav-item" onclick="nav('transacoes')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
+    Transações
+  </button>
+  <button class="bottom-nav-item" onclick="nav('investimentos')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    FIIs
+  </button>
+  <button class="bottom-nav-item" onclick="nav('caixinhas')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 5.5 8c0 2.3 1.5 4.05 3 5.5l7.5 7.5 3-4.5z"/></svg>
+    Patrimônio
+  </button>
+  <button class="bottom-nav-item" onclick="nav('checklist')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    Check
+  </button>
+  <button class="bottom-nav-item" onclick="nav('simulador')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/></svg>
+    Simulador
+  </button>
+</nav>
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="brand">
+    <div class="brand-title">Finanças</div>
+    <div class="brand-name">Al<span>.</span>lan</div>
+    <div style="margin-top:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-size:10px;font-weight:600;letter-spacing:0.08em;color:var(--muted);text-transform:uppercase">Nível <span id="nivel-num" style="color:var(--accent)">0</span></span>
+        <span style="font-size:10px;color:var(--muted)" id="nivel-pat">R$ 0</span>
+      </div>
+      <div style="height:4px;background:rgba(255,255,255,0.07);border-radius:2px;overflow:hidden">
+        <div id="nivel-bar" style="height:100%;border-radius:2px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .4s;width:0%"></div>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:3px" id="nivel-next">próx. nível: R$ 1.000</div>
+    </div>
+  </div>
+  <nav class="nav">
+    <div class="nav-section">Painel</div>
+    <button class="nav-item active" onclick="nav('resumo')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      <span>Resumo</span>
+    </button>
+    <button class="nav-item" onclick="nav('transacoes')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
+      <span>Transações</span>
+    </button>
+    <div class="nav-section">Investimentos</div>
+    <button class="nav-item" onclick="nav('investimentos')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      <span>FIIs & Ações</span>
+    </button>
+    <button class="nav-item" onclick="nav('caixinhas')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 5.5 8c0 2.3 1.5 4.05 3 5.5l7.5 7.5 3-4.5z"/></svg>
+      <span>Patrimônio</span>
+    </button>
+    <div class="nav-section">Ferramentas</div>
+    <button class="nav-item" onclick="nav('checklist')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      <span>Check list</span>
+    </button>
+    <button class="nav-item" onclick="nav('simulador')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/></svg>
+      <span>Simulador</span>
+    </button>
+  </nav>
+  <div class="sidebar-footer">Mai 2026</div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+  <div class="topbar">
+    <span class="topbar-title" id="topbar-label">Resumo do mês</span>
+    <span class="topbar-month">Maio 2026</span>
+  </div>
+
+  <!-- RESUMO -->
+  <section id="page-resumo" class="page active">
+    <div class="page-header">
+      <h1>Visão geral</h1>
+      <p>Resumo financeiro do mês atual</p>
+    </div>
+    <div class="metrics-row">
+      <div class="metric"><div class="metric-label">Saldo inicial</div><div class="metric-value"><input id="saldo-inicial" type="number" value="6" step="1" oninput="renderSaidas()" style="width:80px;font-size:20px;font-weight:500;font-family:var(--mono);background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text);padding:0 2px;outline:none;" onfocus="this.style.borderBottomColor='var(--accent)'" onblur="this.style.borderBottomColor='var(--border2)'"></div></div>
+      <div class="metric"><div class="metric-label">Saldo final</div><div class="metric-value green" id="resumo-saldo-final">R$ 128</div></div>
+      <div class="metric"><div class="metric-label">Entradas</div><div class="metric-value blue" id="resumo-entradas">R$ 7.437</div></div>
+      <div class="metric"><div class="metric-label">Saídas</div><div class="metric-value red" id="resumo-saidas">R$ 7.315</div></div>
+      <div class="metric"><div class="metric-label">Economia</div><div class="metric-value green" id="resumo-economia">R$ 122</div><div class="metric-sub" id="resumo-economia-pct">—</div></div>
+      <div class="metric"><div class="metric-label">Separar</div><div class="metric-value" id="resumo-separar" style="color:#9b72f2">—</div><div class="metric-sub">itens marcados</div></div>
+      <div class="metric"><div class="metric-label">Patrimônio total</div><div class="metric-value" id="resumo-patrimonio">R$ 51.702</div><div class="metric-sub" id="resumo-patrimonio-meta">Meta: —</div></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Saídas</span>
+          <span class="badge badge-over">Real vs plano</span>
+        </div>
+        <div id="saidas-list"></div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+          <input id="saida-new-name" type="text" placeholder="Nome da saída"
+            style="flex:2;font-size:12px;padding:6px 10px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--sans);outline:none;">
+          <input id="saida-new-plan" type="number" placeholder="Plano R$" step="1"
+            style="flex:1;font-size:12px;padding:6px 10px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--mono);outline:none;">
+          <button onclick="addSaida()" style="padding:6px 12px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;white-space:nowrap">+ Adicionar</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Resumo financeiro</span></div>
+        <div class="chart-wrap" style="height:280px"><canvas id="chartBar" aria-label="Entradas vs Saídas">Entradas: 7437 | Saídas: 7315</canvas></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><span class="card-title">Patrimônio — distribuição</span></div>
+      <div class="grid-2" style="align-items:center">
+        <div class="chart-wrap" style="height:240px"><canvas id="chartPat" aria-label="Distribuição do patrimônio"></canvas></div>
+        <div id="pat-legend"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TRANSAÇÕES -->
+  <section id="page-transacoes" class="page">
+    <div class="page-header">
+      <h1>Transações</h1>
+      <p>Lançamentos de despesas e renda do mês</p>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Nova transação</span></div>
+      <div class="form-row">
+        <div class="form-group"><label>Data</label><input id="t-data" type="text" placeholder="Mensal / dia X"></div>
+        <div class="form-group"><label>Descrição</label><input id="t-desc" type="text" placeholder="Ex: Terapia"></div>
+        <div class="form-group"><label>Valor (R$)</label><input id="t-valor" type="number" placeholder="0.00" step="0.01"></div>
+        <div class="form-group"><label>Tipo</label>
+          <select id="t-tipo">
+            <option value="despesa">Despesa</option>
+            <option value="renda">Renda / Caixinha</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row" style="grid-template-columns:1fr auto;align-items:end">
+        <div class="form-group"><label>Categoria</label>
+          <select id="t-cat"></select>
+        </div>
+        <div class="form-group"><label>&nbsp;</label><button class="btn btn-primary" onclick="addTx()">+ Adicionar</button></div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Despesas</span>
+          <span class="badge badge-over" id="total-desp-badge">Total: R$ 0</span>
+        </div>
+        <div class="table-scroll"><table>
+          <thead><tr><th></th><th>Data</th><th>Descrição</th><th>Categoria</th><th class="right">Valor</th><th></th><th></th></tr></thead>
+          <tbody id="tbody-desp"></tbody>
+        </table></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Renda + Caixinhas</span>
+          <span class="badge badge-ok" id="total-rend-badge">Total: R$ 0</span>
+        </div>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th class="right">Valor</th><th></th></tr></thead>
+          <tbody id="tbody-rend"></tbody>
+        </table></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- INVESTIMENTOS -->
+  <section id="page-investimentos" class="page">
+    <div class="page-header"><h1>FIIs & Ações</h1><p>Carteira de renda variável</p></div>
+    <div class="metrics-row">
+      <div class="metric"><div class="metric-label">Patrimônio FII</div><div class="metric-value" id="inv-pat-fii">—</div><div class="metric-sub" id="inv-rend-fii">Dividendos/mês: —</div></div>
+      <div class="metric"><div class="metric-label">Patrimônio Ações</div><div class="metric-value" id="inv-pat-acoes">—</div><div class="metric-sub" id="inv-prov-acoes">Proventos: —</div></div>
+      <div class="metric"><div class="metric-label">Renda variável total</div><div class="metric-value" id="inv-pat-total">—</div></div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Fundos imobiliários</span></div>
+        <table>
+          <thead><tr><th>Fundo</th><th>Tipo</th><th class="right">Cota</th><th class="right">Qtd</th><th class="right">Patrimônio</th><th class="right">Rend/cota</th><th class="right">Dividendos</th><th class="right">DY%</th><th></th></tr></thead>
+          <tbody id="fii-tbody"></tbody>
+          <tfoot id="fii-tfoot"><tr>
+            <td colspan="4" style="font-weight:600;padding-top:12px;color:var(--muted)">Total</td>
+            <td class="right mono" style="font-weight:600;padding-top:12px">—</td>
+            <td class="right mono" style="font-weight:600;padding-top:12px">—</td>
+            <td></td><td></td>
+          </tr></tfoot>
+        </table>
+        <div style="display:flex;gap:8px;align-items:flex-end;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);flex-wrap:wrap">
+          <div class="form-group" style="margin:0;flex:1;min-width:80px"><label>Ticker</label><input id="fii-new-name" type="text" placeholder="Ex: XPML11" style="width:100%;font-size:12px;padding:6px 10px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--sans);outline:none;text-transform:uppercase"></div>
+          <div class="form-group" style="margin:0;flex:1;min-width:70px"><label>Tipo</label><input id="fii-new-tipo" type="text" placeholder="Ex: Papel" style="width:100%;font-size:12px;padding:6px 10px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--sans);outline:none;"></div>
+          <div class="form-group" style="margin:0;flex:1;min-width:70px"><label>Cota R$</label><input id="fii-new-cota" type="number" step="0.01" placeholder="0.00" style="width:100%;font-size:12px;padding:6px 10px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--mono);outline:none;"></div>
+          <div class="form-group" style="margin:0;flex:1;min-width:60px"><label>Qtd</label><input id="fii-new-qtd" type="number" step="1" placeholder="0" style="width:100%;font-size:12px;padding:6px 10px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--mono);outline:none;"></div>
+          <div class="form-group" style="margin:0;flex:1;min-width:70px"><label>Rend/cota</label><input id="fii-new-rend" type="number" step="0.001" placeholder="0.000" style="width:100%;font-size:12px;padding:6px 10px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--mono);outline:none;"></div>
+          <div class="form-group" style="margin:0"><label>&nbsp;</label><button class="btn btn-primary" onclick="addFii()" style="padding:6px 12px;font-size:12px">+ Add</button></div>
+        </div>
+
+        <div style="display:flex;gap:16px;align-items:center;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);flex-wrap:wrap">
+          <div>
+            <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Valor de Refer&#234;ncia</div>
+            <input id="fii-ref" type="number" step="0.01" placeholder="Ex: 10000"
+              oninput="updateFiiDiff()"
+              style="width:140px;font-size:16px;font-weight:500;font-family:var(--mono);background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text);padding:2px 4px;outline:none;"
+              onfocus="this.style.borderBottomColor='var(--accent)'"
+              onblur="this.style.borderBottomColor='var(--border2)'">
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Diferen&#231;a</div>
+            <div id="fii-diff" style="font-size:20px;font-weight:500;font-family:var(--mono);color:var(--muted)">—</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Ações & ETFs</span></div>
+        <table>
+          <thead><tr><th>Ticker</th><th class="right">Cota</th><th class="right">Qtd</th><th class="right">Patrimônio</th><th class="right">Proventos</th><th></th></tr></thead>
+          <tbody id="acoes-tbody"></tbody>
+          <tfoot id="acoes-tfoot"><tr>
+            <td colspan="3" style="font-weight:600;padding-top:12px;color:var(--muted)">Total</td>
+            <td class="right mono" style="font-weight:600;padding-top:12px">—</td>
+            <td></td><td></td>
+          </tr></tfoot>
+        </table>
+        <div style="display:flex;gap:8px;align-items:flex-end;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);flex-wrap:wrap">
+          <div class="form-group" style="margin:0;flex:1;min-width:80px"><label>Ticker</label><input id="acao-new-name" type="text" placeholder="Ex: BOVA11" style="width:100%;font-size:12px;padding:6px 10px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--sans);outline:none;text-transform:uppercase"></div>
+          <div class="form-group" style="margin:0;flex:1;min-width:70px"><label>Cota R$</label><input id="acao-new-cota" type="number" step="0.01" placeholder="0.00" style="width:100%;font-size:12px;padding:6px 10px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--mono);outline:none;"></div>
+          <div class="form-group" style="margin:0;flex:1;min-width:60px"><label>Qtd</label><input id="acao-new-qtd" type="number" step="1" placeholder="0" style="width:100%;font-size:12px;padding:6px 10px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--mono);outline:none;"></div>
+          <div class="form-group" style="margin:0"><label>&nbsp;</label><button class="btn btn-primary" onclick="addAcao()" style="padding:6px 12px;font-size:12px">+ Add</button></div>
+        </div>
+
+        <div style="display:flex;gap:16px;align-items:center;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);flex-wrap:wrap">
+          <div>
+            <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Valor de Refer&#234;ncia</div>
+            <input id="acoes-ref" type="number" step="0.01" placeholder="Ex: 4000"
+              oninput="updateAcoesDiff()"
+              style="width:140px;font-size:16px;font-weight:500;font-family:var(--mono);background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text);padding:2px 4px;outline:none;"
+              onfocus="this.style.borderBottomColor='var(--accent)'"
+              onblur="this.style.borderBottomColor='var(--border2)'">
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Diferen&#231;a</div>
+            <div id="acoes-diff" style="font-size:20px;font-weight:500;font-family:var(--mono);color:var(--muted)">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Cotações</span>
+        <div style="display:flex;gap:10px;align-items:center">
+          <span id="fetch-status" style="font-size:11px;color:var(--muted)"></span>
+          <button class="btn btn-primary" onclick="fetchSheets()" id="sheets-btn" style="padding:6px 16px;font-size:12px">📊 Google Sheets</button>
+        </div>
+      </div>
+
+      <!-- Google Sheets config -->
+      <div style="background:var(--bg3);border-radius:10px;padding:14px;margin-bottom:16px">
+        <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px">Configurar Google Sheets</div>
+        <div class="form-row" style="grid-template-columns:1fr auto;align-items:end;gap:10px">
+          <div class="form-group" style="margin:0"><label>ID da planilha</label>
+            <input id="sheets-id" type="text" value="2PACX-1vSXpTN1Hbb9HwaKg6gTFf4lAGku6kszjUVVYs23owqODlzFhWJup2g_Nb8EDmOlCpluG2VBqUkkiDKF" placeholder="Cole o ID ou URL da planilha"
+              style="width:100%;font-size:12px;padding:6px 10px;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--mono);outline:none;">
+          </div>
+          <div class="form-group" style="margin:0"><label>Aba</label>
+            <input id="sheets-tab" type="text" value="Cotacoes" placeholder="Nome da aba"
+              style="width:120px;font-size:12px;padding:6px 10px;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--sans);outline:none;">
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.6">
+          Cole o ID da planilha ou o link completo publicado (<strong style="color:var(--text)">/pubhtml</strong>). Use <code style="background:var(--bg2);padding:1px 5px;border-radius:4px;font-size:10px">=GOOGLEFINANCE("BVMF:MXRF11","price")</code> na coluna B para cotações automáticas.
+        </div>
+      </div>
+
+      <div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)">
+        <p style="font-size:12px;color:var(--muted)">Yahoo Finance usa proxy público sem cadastro. Google Sheets requer planilha pública com ticker na coluna A e cota na coluna B.</p>
+      </div>
+      <div class="card-header" style="margin-bottom:12px"><span class="card-title" style="font-size:11px">Editar manualmente</span></div>
+      <div class="form-row" style="grid-template-columns:1fr 1fr 1fr auto;align-items:end">
+        <div class="form-group"><label>Ticker</label>
+          <select id="inv-ticker"></select>
+        </div>
+        <div class="form-group"><label>Novo valor da cota (R$)</label><input id="inv-cota" type="number" step="0.01" placeholder="Ex: 9.92"></div>
+        <div class="form-group"><label>Nova quantidade</label><input id="inv-qtd" type="number" step="1" placeholder="Ex: 201"></div>
+        <div class="form-group"><label>&nbsp;</label><button class="btn btn-primary" onclick="updateInv()">Atualizar</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CAIXINHAS -->
+  <section id="page-caixinhas" class="page">
+    <div class="page-header"><h1>Patrimônio</h1><p>Progresso das metas de poupança</p></div>
+    <div class="metrics-row">
+      <div class="metric"><div class="metric-label">Total caixinhas</div><div class="metric-value" id="cx-total-real">R$ 33.065</div><div class="metric-sub" id="cx-total-meta">Meta: R$ 85.000</div></div>
+      <div class="metric"><div class="metric-label">% da meta</div><div class="metric-value blue" id="cx-total-pct">38,9%</div></div>
+      <div class="metric"><div class="metric-label">Rend./mês</div><div class="metric-value green" id="cx-rend-mes">—</div></div>
+      <div class="metric"><div class="metric-label">Rend./ano</div><div class="metric-value green" id="cx-rend-ano">—</div></div>
+      <div class="metric">
+        <div class="metric-label">CDI % a.a.</div>
+        <div style="display:flex;align-items:baseline;gap:4px">
+          <input id="cdi-base-cx" type="number" step="0.1" value="14.4"
+            oninput="document.getElementById('q-cdi').value=this.value;renderRendimentos()"
+            style="width:60px;font-size:20px;font-weight:500;font-family:var(--mono);background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text);padding:0 2px;outline:none;"
+            onfocus="this.style.borderBottomColor='var(--accent)'"
+            onblur="this.style.borderBottomColor='var(--border2)'">
+          <span style="font-size:14px;color:var(--muted)">%</span>
+        </div>
+        <div class="metric-sub">Taxa base CDI</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Progresso do patrimônio</span></div>
+      <div id="caixinhas-list"></div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Rendimentos individuais</span></div>
+        <table>
+          <thead><tr><th>Caixinha</th><th class="right">CDI %</th><th class="right">Bruto/mês</th><th class="right">IR (25%)</th><th class="right">Líq./mês</th><th class="right">Líq./ano</th></tr></thead>
+          <tbody id="rend-tbody"></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Atualizar item</span></div>
+        <div class="form-group"><label>Item</label>
+          <select id="cx-nome"></select>
+        </div>
+        <div class="form-group"><label>Valor atual (R$)</label><input id="cx-real" type="number" step="0.01" placeholder="Ex: 10330"></div>
+        <div class="form-group"><label>Meta (R$)</label><input id="cx-meta" type="number" step="0.01" placeholder="Ex: 10000"></div>
+        <button class="btn btn-primary" onclick="updateCaixinha()" style="width:100%;margin-bottom:16px">Atualizar</button>
+
+        <div style="border-top:1px solid var(--border);padding-top:14px">
+          <div class="card-header" style="margin-bottom:10px"><span class="card-title" style="font-size:11px">Adicionar novo item</span></div>
+          <div class="form-group"><label>Nome</label><input id="cx-new-name" type="text" placeholder="Ex: Reserva Viagem Europa"></div>
+          <div class="form-group"><label>Valor atual (R$)</label><input id="cx-new-real" type="number" step="0.01" placeholder="Ex: 500"></div>
+          <div class="form-group"><label>Meta (R$)</label><input id="cx-new-meta" type="number" step="0.01" placeholder="Ex: 5000"></div>
+          <button class="btn btn-ghost" onclick="addCaixinha()" style="width:100%">+ Adicionar item</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CHECK LIST -->
+  <section id="page-checklist" class="page">
+    <div class="page-header"><h1>Check list</h1><p>Assinaturas e gastos do cartão de crédito</p></div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Cartão de crédito</span>
+        <span class="badge badge-warn" id="cc-total-badge">Total: R$ 0</span>
+      </div>
+      <table>
+        <thead><tr><th>Item</th><th class="right">Valor (R$)</th><th class="right">% do total</th><th></th></tr></thead>
+        <tbody id="cc-tbody"></tbody>
+      </table>
+      <div style="display:flex;gap:8px;align-items:flex-end;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+        <div class="form-group" style="margin:0;flex:2"><label>Item</label>
+          <input id="cc-new-name" type="text" placeholder="Ex: Netflix (dia 3)"
+            style="width:100%;font-size:12px;padding:6px 10px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--sans);outline:none;">
+        </div>
+        <div class="form-group" style="margin:0;flex:1"><label>Valor (R$)</label>
+          <input id="cc-new-val" type="number" step="0.01" placeholder="0.00"
+            style="width:100%;font-size:12px;padding:6px 10px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--mono);outline:none;">
+        </div>
+        <div class="form-group" style="margin:0"><label>&nbsp;</label>
+          <button class="btn btn-primary" onclick="addCcItem()" style="padding:6px 14px;font-size:12px">+ Adicionar</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-header">
+        <span class="card-title">Mercado</span>
+        <span class="badge badge-blue" id="merc-total-badge">Total: R$ 0</span>
+      </div>
+      <table>
+        <thead><tr><th>Item</th><th>Categoria</th><th>Quantidade</th><th class="right">Valor (R$)</th><th></th></tr></thead>
+        <tbody id="merc-tbody"></tbody>
+      </table>
+      <div style="display:flex;gap:8px;align-items:flex-end;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);flex-wrap:wrap">
+        <div class="form-group" style="margin:0;flex:2;min-width:120px"><label>Item</label>
+          <input id="merc-new-name" type="text" placeholder="Ex: Arroz"
+            style="width:100%;font-size:12px;padding:6px 10px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--sans);outline:none;">
+        </div>
+        <div class="form-group" style="margin:0;flex:1;min-width:90px"><label>Categoria</label>
+          <input id="merc-new-cat" type="text" placeholder="Ex: Cozinha"
+            style="width:100%;font-size:12px;padding:6px 10px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--sans);outline:none;">
+        </div>
+        <div class="form-group" style="margin:0;flex:1;min-width:80px"><label>Quantidade</label>
+          <input id="merc-new-qtd" type="text" placeholder="Ex: 1kg"
+            style="width:100%;font-size:12px;padding:6px 10px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--sans);outline:none;">
+        </div>
+        <div class="form-group" style="margin:0;flex:1;min-width:80px"><label>Valor (R$)</label>
+          <input id="merc-new-val" type="number" step="0.01" placeholder="0.00"
+            style="width:100%;font-size:12px;padding:6px 10px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--mono);outline:none;">
+        </div>
+        <div class="form-group" style="margin:0"><label>&nbsp;</label>
+          <button class="btn btn-primary" onclick="addMercItem()" style="padding:6px 14px;font-size:12px">+ Adicionar</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><span class="card-title">Gastos por categoria</span></div>
+      <div class="grid-2" style="align-items:center">
+        <div class="chart-wrap" style="height:240px"><canvas id="chartMerc" aria-label="Gastos por categoria no mercado"></canvas></div>
+        <div id="merc-legend"></div>
+      </div>
+    </div>
+  </section>
+  <section id="page-simulador" class="page">
+
+    <!-- CDI -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-header"><span class="card-title">Simulador de rendimento — CDI</span></div>
+      <div class="grid-2">
+        <div>
+          <div class="form-group"><label>Valor inicial (R$)</label><input id="s-valor" type="number" value="20000" step="100" oninput="calcSim()"></div>
+          <div class="form-group"><label>Taxa CDI % a.a.</label><input id="s-cdi" type="number" value="14.4" step="0.1" oninput="calcSim()"></div>
+          <div class="form-group"><label>% do CDI aplicado</label><input id="s-pct" type="number" value="100" step="1" oninput="calcSim()"></div>
+          <div class="form-group"><label>IR % (0 para isento)</label><input id="s-ir" type="number" value="15" step="1" oninput="calcSim()"></div>
+          <div class="form-group"><label>Aporte mensal (R$)</label><input id="s-aporte" type="number" value="0" step="100" oninput="calcSim()"></div>
+          <div class="form-group"><label>Período (meses)</label><input id="s-meses" type="number" value="12" step="1" oninput="calcSim()"></div>
+        </div>
+        <div>
+          <div class="metrics-row" style="grid-template-columns:1fr 1fr">
+            <div class="metric"><div class="metric-label">Rend./mês</div><div class="metric-value green" id="s-out-mes">—</div></div>
+            <div class="metric"><div class="metric-label">Rend./ano</div><div class="metric-value green" id="s-out-ano">—</div></div>
+            <div class="metric"><div class="metric-label">Líq./mês (após IR)</div><div class="metric-value" id="s-out-liq">—</div></div>
+            <div class="metric"><div class="metric-label">Total ao fim</div><div class="metric-value blue" id="s-out-total">—</div></div>
+          </div>
+          <div class="card" style="margin-top:0">
+            <div class="card-header"><span class="card-title">Evolução do patrimônio</span></div>
+            <div class="chart-wrap" style="height:180px"><canvas id="chartSim" aria-label="Evolução do patrimônio no simulador"></canvas></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FII DISTRIBUIÇÃO -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Simulador de distribuição — FIIs</span>
+        <span class="badge badge-blue">quanto rende meu aporte?</span>
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-end;margin-bottom:20px;flex-wrap:wrap">
+        <div class="form-group" style="margin:0">
+          <label>Total a investir (R$)</label>
+          <input id="sim-fii-total" type="number" step="100" placeholder="Ex: 5000" oninput="calcSimFii()"
+            style="font-size:16px;padding:8px 12px;width:180px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--mono);outline:none;">
+        </div>
+        <div class="metrics-row" style="margin:0;flex:1;min-width:280px">
+          <div class="metric"><div class="metric-label">Total alocado</div><div class="metric-value blue" id="sim-fii-alocado">R$ 0</div></div>
+          <div class="metric"><div class="metric-label">Saldo restante</div><div class="metric-value" id="sim-fii-saldo">—</div></div>
+          <div class="metric"><div class="metric-label">Dividendos/mês</div><div class="metric-value green" id="sim-fii-div">R$ 0,00</div></div>
+          <div class="metric"><div class="metric-label">% sobre investido</div><div class="metric-value" id="sim-fii-pct">—</div><div class="metric-sub">rendimento mensal</div></div>
+        </div>
+      </div>
+
+      <table>
+        <thead><tr><th>Ativo</th><th class="right">Cota (R$)</th><th class="right">Qtd simulada</th><th class="right">Total (R$)</th><th class="right">Rend/cota</th><th class="right">Dividendos</th><th></th></tr></thead>
+        <tbody id="sim-fii-tbody"></tbody>
+      </table>
+
+      <!-- Add new item -->
+      <div style="display:flex;gap:8px;align-items:flex-end;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);flex-wrap:wrap">
+        <div class="form-group" style="margin:0;flex:2;min-width:100px"><label>Ativo</label>
+          <select id="sim-fii-new-ticker" style="width:100%;font-size:12px;padding:6px 10px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--sans);outline:none;"></select>
+        </div>
+        <div class="form-group" style="margin:0"><label>&nbsp;</label>
+          <button class="btn btn-ghost" onclick="addSimFiiItem()" style="padding:6px 14px;font-size:12px">+ Adicionar ativo</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+</div>
+</div><!-- end app-shell -->
+
+<!-- Hidden inputs for cotacoes state (used by updateCotacoes/renderRendimentos) -->
+<input type="hidden" id="q-usd" value="5.0568">
+<input type="hidden" id="q-sek" value="0.5351">
+<input type="hidden" id="q-cdi" value="14.4">
+<input type="hidden" id="q-btc" value="78363.04">
+<div id="q-btc-brl" style="display:none"></div>
+<div id="q-proj" style="display:none"></div>
+
+<script>
+const brl = v => 'R$ ' + Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+const brl0 = v => 'R$ ' + Math.round(v).toLocaleString('pt-BR');
+const pct = v => v.toFixed(1) + '%';
+const SEP_STYLE_ON  = 'background:rgba(155,114,242,0.15);color:#9b72f2;border-color:rgba(155,114,242,0.3)';
+const SEP_STYLE_OFF = 'background:transparent;color:var(--muted);border-color:var(--border2)';
+const SELECT_STYLE  = 'width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-family:var(--sans);font-size:12px;padding:4px 6px;outline:none;';
+const INLINE_STYLE      = 'background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text);font-family:var(--sans);font-size:13px;padding:2px 4px;outline:none;';
+const INLINE_STYLE_MONO = 'width:80px;text-align:right;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:13px;padding:2px 4px;outline:none;';
+const FOCUS_BLUR = ' onfocus="this.style.borderBottomColor=\'var(--accent)\'" onblur="this.style.borderBottomColor=\'var(--border2)\'"';
+
+// NAV
+const labels = {};
+labels['resumo']       = 'Resumo do m\u00eas';
+labels['transacoes']   = 'Transa\u00e7\u00f5es';
+labels['investimentos']= 'FIIs & A\u00e7\u00f5es';
+labels['caixinhas']    = 'Patrim\u00f4nio';
+labels['checklist']    = 'Check list';
+labels['simulador']    = 'Simulador';
+function nav(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.bottom-nav-item').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  // Highlight sidebar item
+  const onclickMatch = function(el, id) {
+    var oc = el.getAttribute('onclick') || '';
+    return oc.indexOf(id) !== -1;
+  };
+  document.querySelectorAll('.nav-item').forEach(function(b) {
+    if (onclickMatch(b, id)) b.classList.add('active');
+  });
+  document.querySelectorAll('.bottom-nav-item').forEach(function(b) {
+    if (onclickMatch(b, id)) b.classList.add('active');
+  });
+  document.getElementById('topbar-label').textContent = labels[id];
+  if (id === 'simulador') { calcSim(); initSimFii(); }
+  if (id === 'investimentos') { refreshInvTicker(); }
+}
+
+// DATA
+// Mercado
+let mercItems = [
+  {name:'Feijao',               cat:'Cozinha',  qtd:'1kg',        val:9},
+  {name:'Arroz',                cat:'Cozinha',  qtd:'1kg',        val:12},
+  {name:'Frutas',               cat:'Cozinha',  qtd:'kg',         val:12},
+  {name:'Salada/Legume',        cat:'Cozinha',  qtd:'kg',         val:10},
+  {name:'Oleo',                 cat:'Cozinha',  qtd:'900ml',      val:9},
+  {name:'Doces/Sobremesas',     cat:'Cozinha',  qtd:'kg',         val:20},
+  {name:'Heineken',             cat:'Cozinha',  qtd:'12 unidades',val:75},
+  {name:'Carne',                cat:'Cozinha',  qtd:'kg',         val:150},
+  {name:'Cafe',                 cat:'Cozinha',  qtd:'1 pct',      val:50},
+  {name:'Suco',                 cat:'Cozinha',  qtd:'L',          val:30},
+  {name:'Refrigerante',         cat:'Cozinha',  qtd:'L',          val:40},
+  {name:'Paes',                 cat:'Cozinha',  qtd:'Sal/Forma',  val:20},
+  {name:'Queijo',               cat:'Cozinha',  qtd:'kg',         val:50},
+  {name:'Presunto/Peito Peru',  cat:'Cozinha',  qtd:'kg',         val:40},
+  {name:'Azeitona',             cat:'Cozinha',  qtd:'1 uni',      val:17},
+  {name:'Temperos',             cat:'Cozinha',  qtd:'unidades',   val:30},
+  {name:'Ovos',                 cat:'Cozinha',  qtd:'12uni',      val:20},
+  {name:'Macarrao',             cat:'Cozinha',  qtd:'1kg',        val:12},
+  {name:'Detergente',           cat:'Faxina',   qtd:'1',          val:3},
+  {name:'Esponja',              cat:'Faxina',   qtd:'1',          val:5},
+  {name:'Desinfetante',         cat:'Faxina',   qtd:'1',          val:8},
+  {name:'Sab\u00e3o em p\u00f3 (1,5kg)',cat:'Faxina',qtd:'1',    val:30},
+  {name:'Limpador multiuso',    cat:'Faxina',   qtd:'1',          val:10},
+  {name:'Sacos de lixo',        cat:'Faxina',   qtd:'1',          val:25},
+  {name:'Amaciante',            cat:'Faxina',   qtd:'1',          val:25},
+  {name:'Papel H',              cat:'Higiene',  qtd:'1',          val:20},
+  {name:'Sabonete',             cat:'Higiene',  qtd:'1',          val:6},
+  {name:'Pasta de Dente',       cat:'Higiene',  qtd:'1',          val:20},
+  {name:'Fio Dental',           cat:'Higiene',  qtd:'1',          val:15},
+  {name:'Desodorante',          cat:'Higiene',  qtd:'1',          val:25},
+  {name:'Shampoos',             cat:'Higiene',  qtd:'1',          val:25},
+  {name:'Cremes de pele',       cat:'Higiene',  qtd:'1',          val:25},
+  {name:'Cotonete',             cat:'Higiene',  qtd:'1',          val:6},
+];
+
+function renderMercItems() {
+  const total = mercItems.reduce((a, m) => a + m.val, 0);
+  const badge = document.getElementById('merc-total-badge');
+  if (badge) badge.textContent = 'Total: ' + brl(total);
+
+  const tbody = document.getElementById('merc-tbody');
+  if (!tbody) return;
+
+  const rows = mercItems.map(function(m, i) {
+    var esc = String(m.name).replace(/\x22/g,'&quot;');
+    var escCat = String(m.cat).replace(/\x22/g,'&quot;');
+    var escQtd = String(m.qtd||'').replace(/\x22/g,'&quot;');
+    var nameIn = '<input value="'+esc+'" onchange="mercItems['+i+'].name=this.value;renderMercItems()" style="width:100%;'+INLINE_STYLE+'"'+FOCUS_BLUR+'>';
+    var catIn  = '<input value="'+escCat+'" onchange="mercItems['+i+'].cat=this.value;renderMercItems()" style="width:100%;'+INLINE_STYLE+'"'+FOCUS_BLUR+'>';
+    var qtdIn  = '<input value="'+escQtd+'" onchange="mercItems['+i+'].qtd=this.value;renderMercItems()" style="width:80px;'+INLINE_STYLE+'"'+FOCUS_BLUR+'>';
+    var valIn  = '<input type="number" step="0.01" value="'+m.val.toFixed(2)+'" onchange="mercItems['+i+'].val=parseFloat(this.value)||0;renderMercItems()" style="'+INLINE_STYLE_MONO+'"'+FOCUS_BLUR+'>';
+    return '<tr><td>'+nameIn+'</td><td>'+catIn+'</td><td>'+qtdIn+'</td><td class="right">'+valIn+'</td><td><button class="btn-danger" onclick="delMercItem('+i+')">&#10005;</button></td></tr>';
+  }).join('');
+
+  var footer = mercItems.length > 0
+    ? '<tr style="font-weight:600;border-top:1px solid var(--border2)"><td colspan="3" style="color:var(--muted)">Total</td><td class="right mono" style="color:var(--accent)">'+brl(total)+'</td><td></td></tr>'
+    : '';
+
+  tbody.innerHTML = rows + footer;
+  saveData();
+  buildMercChart();
+}
+
+function addMercItem() {
+  const name = document.getElementById('merc-new-name').value.trim();
+  const cat  = document.getElementById('merc-new-cat').value.trim() || '—';
+  const qtd  = document.getElementById('merc-new-qtd').value.trim() || '1';
+  const val  = parseFloat(document.getElementById('merc-new-val').value) || 0;
+  if (!name) return;
+  mercItems.push({name, cat, qtd, val});
+  renderMercItems();
+  document.getElementById('merc-new-name').value = '';
+  document.getElementById('merc-new-cat').value  = '';
+  document.getElementById('merc-new-qtd').value  = '';
+  document.getElementById('merc-new-val').value  = '';
+}
+
+function delMercItem(i) {
+  mercItems.splice(i, 1);
+  renderMercItems();
+}
+
+
+// Cartão de crédito
+let ccItems = [
+  {name:'Amazon (dia 1)',        val:0},
+  {name:'Google Storage (dia 26)', val:15},
+  {name:'VPN (dia 2)',           val:70},
+  {name:'Spotify (dia 18)',      val:41},
+  {name:'Nu Cell (dia 14)',      val:25},
+  {name:'Outros (dia 1)',        val:88},
+  {name:'Netflix (dia 3)',       val:60},
+];
+
+// Saídas: plan é fixo, real é calculado dinamicamente a partir de txDesp
+let saidas = [
+  {name:'Cartão de Crédito', cat:'Cartao de Credito',   plan:300},
+  {name:'Terapia',           cat:'Terapia',             plan:500},
+  {name:'FIES',              cat:'FIES',                plan:85},
+  {name:'Cartão Bradesco',   cat:'Cartao Bradesco',     plan:10},
+  {name:'Consórsio Vivian',  cat:'Consórsio Vivian',   plan:291},
+  {name:'INSS',              cat:'INSS',                plan:0},
+  {name:'Investimentos',     cat:'Investimentos',       plan:4000},
+  {name:'IPTV',              cat:'IPTV',                plan:30},
+  {name:'Outros',            cat:'Outros',              plan:0},
+];
+
+let caixinhas = [
+  {name:'Poupança CDI',          plan:10000, real:2518,  isCaixinha:true,  cdi:100},
+  {name:'Reserva de Emergência', plan:45000, real:10006, isCaixinha:true,  cdi:100},
+  {name:'Viagem Brasil',         plan:10000, real:10330, isCaixinha:true,  cdi:100},
+  {name:'Reserva SEK',           plan:23543, real:1605,  isCaixinha:false, cdi:0},
+  {name:'Caixinha Turbo',        plan:20000, real:10211, isCaixinha:true,  cdi:102},
+  {name:'Tesouro IPCA+ 2045',    plan:10000, real:1000,  isCaixinha:false, cdi:0},
+  {name:'BTC',                   plan:3963,  real:1447,  isCaixinha:false, cdi:0},
+  {name:'FII',                   plan:20000, real:10591, isCaixinha:false, cdi:0},
+  {name:'Ações/ETFs',            plan:10000, real:3994,  isCaixinha:false, cdi:0},
+];
+
+let fiis = [
+  {name:'MXRF11', tipo:'Papel',   cota:9.92,   pm:0, qtd:201, rend:0.1,   dy:1.008},
+  {name:'KNCR11', tipo:'Papel',   cota:106.1,  pm:0, qtd:30,  rend:1.1,   dy:1.037},
+  {name:'XPML11', tipo:'Tijolo',  cota:109.8,  pm:0, qtd:11,  rend:0.92,  dy:0.838},
+  {name:'HGLG11', tipo:'Tijolo',  cota:155.5,  pm:0, qtd:11,  rend:1.1,   dy:0.707},
+  {name:'TRXF11', tipo:'Tijolo',  cota:91.8,   pm:0, qtd:15,  rend:0.93,  dy:1.013},
+  {name:'BTHF11', tipo:'Papel',   cota:9.32,   pm:0, qtd:120, rend:0.101, dy:1.084},
+];
+
+let acoes = [
+  {name:'BOVA11', cota:173.88, pm:0, qtd:3,  prov:0},
+  {name:'ETHY11', cota:64.02,  pm:0, qtd:2,  prov:0},
+  {name:'IVVB11', cota:422.55, pm:0, qtd:2,  prov:0},
+  {name:'COIN11', cota:48.92,  pm:0, qtd:18, prov:0},
+  {name:'SMAL11', cota:110.63, pm:0, qtd:2,  prov:0},
+  {name:'WRLD11', cota:135,    pm:0, qtd:2,  prov:0},
+  {name:'EZTC3',  cota:12.69,  pm:0, qtd:13, prov:0},
+  {name:'SAPR4',  cota:7.33,   pm:0, qtd:22, prov:0},
+  {name:'BEWY39', cota:113.36, pm:0, qtd:6,  prov:0},
+  {name:'ITSA4',  cota:12.96,  pm:0, qtd:2,  prov:0},
+  {name:'GOLD11', cota:23.89,  pm:0, qtd:4,  prov:0},
+];
+
+let txDesp = [
+  {data:'Mensal',       desc:'Cartão de Crédito',    cat:'Cartao de Credito',  val:299,  sep:false, paid:false},
+  {data:'Mensal',       desc:'Terapia',              cat:'Terapia',            val:500,  sep:false, paid:false},
+  {data:'Todo dia 10',  desc:'FIES',                 cat:'FIES',               val:85,   sep:false, paid:false},
+  {data:'Mensal',       desc:'Cartão Bradesco',      cat:'Cartao Bradesco',    val:10,   sep:false, paid:false},
+  {data:'Todo dia 15',  desc:'Consórsio Vivian',     cat:'Consórsio Vivian',   val:291,  sep:false, paid:false},
+  {data:'Mensal',       desc:'IPTV',                 cat:'IPTV',               val:30,   sep:false, paid:false},
+  {data:'Mensal',       desc:'Caixinha Turbo',       cat:'Investimentos',      val:500,  sep:true,  paid:false},
+  {data:'Mensal',       desc:'Pessoal',              cat:'Investimentos',      val:400,  sep:false, paid:false},
+  {data:'Mensal',       desc:'Reserva de Emergência',cat:'Investimentos',      val:3500, sep:true,  paid:false},
+  {data:'Mensal',       desc:'BTC',                  cat:'Investimentos',      val:200,  sep:true,  paid:false},
+  {data:'Mensal',       desc:'FII',                  cat:'Investimentos',      val:1000, sep:true,  paid:false},
+  {data:'Mensal',       desc:'Tesouro IPCA+ 2045',   cat:'Investimentos',      val:500,  sep:true,  paid:false},
+];
+
+let txRend = [
+  {data:'Mensal',    desc:'Pagamento',              cat:'entrada',      val:7437.41},
+  {data:'Mensal',    desc:'Emergências',             cat:'caixinha',     val:10006},
+  {data:'Mensal',    desc:'Gastos Pessoais',         cat:'caixinha',     val:2518},
+  {data:'Mensal',    desc:'Passagem de Emergência',  cat:'caixinha',     val:10330},
+  {data:'Mensal',    desc:'Caixinha Turbo',          cat:'caixinha',     val:10211},
+  {data:'Mensal',    desc:'SEK',                     cat:'caixinha',     val:3000},
+  {data:'Mensal',    desc:'Tesouro IPCA+2045',       cat:'investimento', val:1000},
+  {data:'Mensal',    desc:'Fundos Imobiliários',     cat:'investimento', val:10590.62},
+  {data:'Mensal',    desc:'Ações',                   cat:'investimento', val:3994.47},
+  {data:'-',         desc:'FGTS',                    cat:'outros',       val:3612},
+];
+
+// CARTÃO DE CRÉDITO
+function renderCcItems() {
+  const total = ccItems.reduce((a, c) => a + c.val, 0);
+
+  document.getElementById('cc-tbody').innerHTML = ccItems.map((c, i) => {
+    const pct = total > 0 ? (c.val / total * 100).toFixed(1) : '0.0';
+    return `<tr>
+      <td><input value="${c.name.replace(/"/g,'&quot;')}"
+        onchange="ccItems[${i}].name=this.value"
+        style="width:100%;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text);font-family:var(--sans);font-size:13px;padding:2px 4px;outline:none;"
+        onfocus="this.style.borderBottomColor='var(--accent)'" onblur="this.style.borderBottomColor='var(--border2)'">
+      </td>
+      <td class="right"><input type="number" step="0.01" value="${c.val.toFixed(2)}"
+        onchange="ccItems[${i}].val=parseFloat(this.value)||0;renderCcItems()"
+        style="width:80px;text-align:right;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:13px;padding:2px 4px;outline:none;"
+        onfocus="this.style.borderBottomColor='var(--accent)'" onblur="this.style.borderBottomColor='var(--border2)'">
+      </td>
+      <td class="right mono" style="color:var(--muted)">${pct}%</td>
+      <td><button class="btn-danger" onclick="delCcItem(${i})">✕</button></td>
+    </tr>`;
+  }).join('') + `<tr style="font-weight:600;border-top:1px solid var(--border2)">
+    <td>Total mensal</td>
+    <td class="right mono" style="color:var(--warn)">${brl(total)}</td>
+    <td></td><td></td>
+  </tr>`;
+
+  const badge = document.getElementById('cc-total-badge');
+  if (badge) badge.textContent = 'Total: ' + brl(total);
+
+  // Sync total to saidas
+  renderSaidas();
+  saveData();
+}
+
+function addCcItem() {
+  const name = document.getElementById('cc-new-name').value.trim();
+  const val  = parseFloat(document.getElementById('cc-new-val').value) || 0;
+  if (!name) return;
+  ccItems.push({name, val});
+  renderCcItems();
+  document.getElementById('cc-new-name').value = '';
+  document.getElementById('cc-new-val').value  = '';
+}
+
+function delCcItem(i) {
+  ccItems.splice(i, 1);
+  renderCcItems();
+}
+
+
+function updateNivel() {
+  const saldoInicial = parseFloat(document.getElementById('saldo-inicial')?.value) || 0;
+  const patrimonio = caixinhas.reduce((a, c) => a + c.real, 0) + saldoInicial;
+  const nivel    = Math.floor(patrimonio / 1000);
+  const progress = (patrimonio % 1000) / 1000 * 100;
+  const faltam   = 1000 - (patrimonio % 1000);
+  const elNum  = document.getElementById('nivel-num');
+  const elBar  = document.getElementById('nivel-bar');
+  const elPat  = document.getElementById('nivel-pat');
+  const elNext = document.getElementById('nivel-next');
+  if (elNum)  elNum.textContent  = nivel;
+  if (elBar)  elBar.style.width  = progress + '%';
+  if (elPat)  elPat.textContent  = brl0(patrimonio);
+  if (elNext) elNext.textContent = `próx. nível: faltam ${brl0(faltam)}`;
+}
+
+// RENDER SAÍDAS — real calculado dinamicamente de txDesp
+function renderSaidas() {
+  const totaisPorCat = {};
+  // Exclude Cartao de Credito from txDesp — it comes from ccItems instead
+  txDesp.filter(t => t.cat !== 'Cartao de Credito')
+        .forEach(t => { totaisPorCat[t.cat] = (totaisPorCat[t.cat] || 0) + t.val; });
+
+  // Cartão de Crédito comes from ccItems total
+  const ccTotal = ccItems.reduce((a, c) => a + c.val, 0);
+  totaisPorCat['Cartao de Credito'] = ccTotal;
+
+  // Total real = txDesp (excluding CC) + ccItems total
+  const totalReal = txDesp.filter(t => t.cat !== 'Cartao de Credito').reduce((a, t) => a + t.val, 0) + ccTotal;
+
+  const inlineText = (i, field, val, placeholder, width) =>
+    `<input value="${val.replace(/"/g,'&quot;')}" placeholder="${placeholder}"
+      onchange="saidas[${i}].${field}=this.value;renderSaidas()"
+      style="width:${width};background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text);font-family:var(--sans);font-size:13px;padding:2px 4px;outline:none;"
+      onfocus="this.style.borderBottomColor='var(--accent)'"
+      onblur="this.style.borderBottomColor='var(--border2)'">`;
+
+  const inlinePlan = (i, val) =>
+    `<input type="number" step="1" value="${val}"
+      onchange="saidas[${i}].plan=parseFloat(this.value)||0;renderSaidas()"
+      style="width:72px;text-align:right;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:12px;padding:2px 4px;outline:none;"
+      onfocus="this.style.borderBottomColor='var(--accent)'"
+      onblur="this.style.borderBottomColor='var(--border2)'">`;
+
+  document.getElementById('saidas-list').innerHTML = saidas.map((s, i) => {
+    const real = totaisPorCat[s.cat] || 0;
+    const diff = real - s.plan;
+    const badge = diff === 0 ? `<span class="badge badge-ok">No plano</span>` :
+      diff < 0 ? `<span class="badge badge-ok">-${brl0(Math.abs(diff))}</span>` :
+      `<span class="badge badge-over">+${brl0(diff)}</span>`;
+    return `<div class="row-item" style="align-items:center;gap:8px;padding:10px 0">
+      <div style="flex:1;min-width:0">
+        ${inlineText(i, 'name', s.name, 'Nome', '100%')}
+        <div style="display:flex;align-items:center;gap:4px;margin-top:4px">
+          <span style="font-size:10px;color:var(--muted)">Plano:</span>
+          ${inlinePlan(i, s.plan)}
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div class="row-val">${brl0(real)}</div>
+        ${badge}
+      </div>
+      <button onclick="delSaida(${i})" title="Remover"
+        style="background:none;border:none;cursor:pointer;color:var(--muted);padding:2px 4px;font-size:13px;flex-shrink:0">✕</button>
+    </div>`;
+  }).join('');
+
+  // Atualiza métricas do topo do Resumo
+  const saldoInicial = parseFloat(document.getElementById('saldo-inicial')?.value) || 0;
+  const entradas = txRend.filter(t => t.cat === 'entrada').reduce((a, t) => a + t.val, 0);
+  const saldoFinal = saldoInicial + (entradas - totalReal);
+  const elSF = document.getElementById('resumo-saldo-final');
+  const elEnt = document.getElementById('resumo-entradas');
+  const elSai = document.getElementById('resumo-saidas');
+  const elEco    = document.getElementById('resumo-economia');
+  const elEcoPct = document.getElementById('resumo-economia-pct');
+  const economia  = entradas - totalReal;
+  if (elSF)  elSF.textContent  = brl0(saldoFinal);
+  if (elEnt) elEnt.textContent = brl0(entradas);
+  if (elSai) elSai.textContent = brl0(totalReal);
+  if (elEco) elEco.textContent = brl0(economia);
+  if (elEcoPct) {
+    const pct = entradas > 0 ? (economia / entradas * 100) : 0;
+    elEcoPct.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(1) + '% das entradas';
+  }
+  refreshCatDropdown();
+  if (window.buildBarChart) window.buildBarChart();
+  // Update patrimônio total with new saldo inicial
+  const totalPatrimonio = caixinhas.reduce((a, c) => a + c.real, 0) + saldoInicial;
+  const elPat = document.getElementById('resumo-patrimonio');
+  if (elPat) elPat.textContent = brl0(totalPatrimonio);
+  updateNivel();
+}
+
+function addSaida() {
+  const name = document.getElementById('saida-new-name').value.trim();
+  const plan = parseFloat(document.getElementById('saida-new-plan').value) || 0;
+  if (!name) return;
+  saidas.push({name, cat: name, plan});
+  renderSaidas();
+  renderTx();
+  document.getElementById('saida-new-name').value = '';
+  document.getElementById('saida-new-plan').value = '';
+}
+
+function delSaida(i) {
+  saidas.splice(i, 1);
+  renderSaidas();
+  renderTx();
+}
+
+// RENDER RENDIMENTOS
+function renderRendimentos() {
+  const cdiBaseCx = document.getElementById('cdi-base-cx');
+  const cdiBaseQs = document.getElementById('q-cdi');
+  const cdiBase = parseFloat((cdiBaseCx || cdiBaseQs)?.value) || 14.4;
+
+  if (cdiBaseCx && cdiBaseQs && document.activeElement !== cdiBaseQs) cdiBaseQs.value = cdiBase;
+  if (cdiBaseCx && cdiBaseQs && document.activeElement !== cdiBaseCx) cdiBaseCx.value = cdiBase;
+
+  const tbody = document.getElementById('rend-tbody');
+  if (!tbody) return;
+
+  const IR = 0.25;
+
+  const inlineCdi = (i, val) =>
+    `<input type="number" step="0.1" value="${val}"
+      onchange="caixinhas[${i}].cdi=parseFloat(this.value)||0;renderRendimentos()"
+      style="width:55px;text-align:right;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:13px;padding:2px 4px;outline:none;"
+      onfocus="this.style.borderBottomColor='var(--accent)'"
+      onblur="this.style.borderBottomColor='var(--border2)'">`;
+
+  let totalBruto = 0, totalIR = 0, totalLiq = 0, totalAno = 0;
+
+  const rows = caixinhas
+    .filter(c => c.isCaixinha)
+    .map(c => {
+      const i = caixinhas.indexOf(c);
+      // Taxa anual efetiva: CDI_aa * (%CDI/100)
+      const taxaAa = (cdiBase * c.cdi / 100) / 100;
+      // Juros compostos mensais: M = C*(1+i)^(1/12) - C
+      const bruto = c.real * (Math.pow(1 + taxaAa, 1/12) - 1);
+      const ir    = bruto * IR;
+      const liq   = bruto - ir;
+      const ano   = c.real * (Math.pow(1 + taxaAa, 1) - 1);
+
+      totalBruto += bruto;
+      totalIR    += ir;
+      totalLiq   += liq;
+      totalAno   += ano;
+
+      return `<tr>
+        <td>${c.name}</td>
+        <td class="right">${inlineCdi(i, c.cdi)}<span style="font-size:11px;color:var(--muted);margin-left:2px">%</span></td>
+        <td class="right mono">${brl(bruto)}</td>
+        <td class="right mono" style="color:var(--danger)">-${brl(ir)}</td>
+        <td class="right mono" style="color:var(--accent2)">${brl(liq)}</td>
+        <td class="right mono" style="color:var(--muted)">${brl(ano * (1 - IR))}</td>
+      </tr>`;
+    }).join('');
+
+  tbody.innerHTML = rows + `<tr style="font-weight:600;border-top:1px solid var(--border2)">
+    <td>Total</td><td></td>
+    <td class="right mono">${brl(totalBruto)}</td>
+    <td class="right mono" style="color:var(--danger)">-${brl(totalIR)}</td>
+    <td class="right mono" style="color:var(--accent2)">${brl(totalLiq)}</td>
+    <td class="right mono" style="color:var(--muted)">${brl(totalAno * (1 - IR))}</td>
+  </tr>`;
+
+  const elMes = document.getElementById('cx-rend-mes');
+  const elAno = document.getElementById('cx-rend-ano');
+  if (elMes) elMes.textContent = brl(totalLiq);
+  if (elAno) elAno.textContent = brl(totalAno * (1 - IR));
+}
+
+// RENDER CAIXINHAS
+function renderCaixinhas() {
+  const cx = caixinhas.filter(c => c.isCaixinha);
+  const totalReal = cx.reduce((a, c) => a + c.real, 0);
+  const totalMeta = cx.reduce((a, c) => a + c.plan, 0);
+  const totalPct  = totalMeta > 0 ? (totalReal / totalMeta * 100) : 0;
+
+  const el     = document.getElementById('cx-total-real');
+  const elMeta = document.getElementById('cx-total-meta');
+  const elPct  = document.getElementById('cx-total-pct');
+  if (el)     el.textContent     = brl0(totalReal);
+  if (elMeta) elMeta.textContent = 'Meta: ' + brl0(totalMeta);
+  if (elPct)  elPct.textContent  = totalPct.toFixed(1) + '%';
+
+  document.getElementById('caixinhas-list').innerHTML = caixinhas.map((c, i) => {
+    const p = Math.min((c.real / c.plan) * 100, 100);
+    const pctReal = (c.real / c.plan * 100).toFixed(1);
+    const col = p >= 100 ? '#3ecf8e' : p >= 50 ? '#5b8dee' : p >= 20 ? '#f5a623' : '#e05555';
+    const toggleStyle = c.isCaixinha
+      ? 'background:rgba(62,207,142,0.15);color:var(--accent2);border-color:rgba(62,207,142,0.3)'
+      : 'background:transparent;color:var(--muted);border-color:var(--border2)';
+    const autoItems = ['FII', 'Ações/ETFs', 'BTC'];
+    const isAuto = autoItems.includes(c.name);
+    const metaDisplay = isAuto
+      ? '<input type="number" step="1" value="' + c.plan + '" onchange="caixinhas[' + i + '].plan=parseFloat(this.value)||0;renderCaixinhas()" style="width:70px;text-align:right;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--muted);font-family:var(--mono);font-size:11px;padding:1px 3px;outline:none;" onfocus="this.style.borderBottomColor=\'var(--accent)\'" onblur="this.style.borderBottomColor=\'var(--border2)\'">'
+      : '<span style="font-size:11px;color:var(--muted)">/ ' + brl0(c.plan) + '</span>';
+    return '<div style="padding:12px 0;border-bottom:1px solid var(--border)">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
+        '<div style="display:flex;align-items:center;gap:10px">' +
+          '<button onclick="caixinhas[' + i + '].isCaixinha=!caixinhas[' + i + '].isCaixinha;renderCaixinhas()" style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;border:1px solid;cursor:pointer;font-family:var(--sans);transition:all .15s;' + toggleStyle + '">' +
+            (c.isCaixinha ? 'caixinha' : '+ caixinha') +
+          '</button>' +
+          '<span style="font-size:13.5px">' + c.name + '</span>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:10px">' +
+          '<span class="mono" style="font-size:13px">' + brl0(c.real) + '</span>' +
+          '<span class="pct-label">' + pctReal + '%</span>' +
+          metaDisplay +
+          '<button onclick="delCaixinha(' + i + ')" title="Remover" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:2px 4px;font-size:13px;line-height:1">&#10005;</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="progress"><div class="progress-fill" style="width:' + p + '%;background:' + col + '"></div></div>' +
+    '</div>';
+  }).join('');
+
+  // Atualiza Patrimônio total no Resumo (soma de todos os real em caixinhas + saldo inicial)
+  const saldoInicial = parseFloat(document.getElementById('saldo-inicial')?.value) || 0;
+  const totalPatrimonio = caixinhas.reduce((a, c) => a + c.real, 0) + saldoInicial;
+  const totalMetaPatrimonio = caixinhas.reduce((a, c) => a + c.plan, 0);
+  const elPat  = document.getElementById('resumo-patrimonio');
+  const elMetaRes = document.getElementById('resumo-patrimonio-meta');
+  if (elPat)     elPat.textContent     = brl0(totalPatrimonio);
+  if (elMetaRes) elMetaRes.textContent = 'Meta: ' + brl0(totalMetaPatrimonio);
+
+  updateNivel();
+  refreshCxSelect();
+  if (window.buildPatChart) window.buildPatChart();
+  renderRendimentos();
+}
+
+// RENDER FIIs
+function renderFIIs() {
+  const inlineRend = (i, val) =>
+    `<input type="number" step="0.001" value="${val.toFixed(3)}"
+      onchange="fiis[${i}].rend=parseFloat(this.value)||0;renderFIIs()"
+      style="width:80px;text-align:right;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--accent2);font-family:var(--mono);font-size:13px;padding:2px 4px;outline:none;"
+      onfocus="this.style.borderBottomColor='var(--accent)'"
+      onblur="this.style.borderBottomColor='var(--border2)'">`;
+
+  let totalPat = 0, totalRend = 0, totalDiv = 0;
+  const rows = fiis.map((f, i) => {
+    const pat = f.cota * f.qtd;
+    const div = f.rend * f.qtd;
+    totalPat  += pat;
+    totalRend += f.rend * f.qtd;
+    totalDiv  += div;
+    return `<tr>
+      <td><strong>${f.name}</strong></td>
+      <td><span class="cat-tag">${f.tipo}</span></td>
+      <td class="right mono">${brl(f.cota)}</td>
+      <td class="right mono">${f.qtd}</td>
+      <td class="right mono">${brl(pat)}</td>
+      <td class="right">${inlineRend(i, f.rend)}</td>
+      <td class="right mono" style="color:var(--accent2)">${brl(div)}</td>
+      <td class="right mono">${f.dy.toFixed(2)}%</td>
+      <td><button class="btn-danger" onclick="delFii(${i})">✕</button></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('fii-tbody').innerHTML = rows;
+
+  const tfoot = document.getElementById('fii-tfoot');
+  if (tfoot) tfoot.innerHTML = `<tr>
+    <td colspan="4" style="font-weight:600;padding-top:12px;color:var(--muted)">Total</td>
+    <td class="right mono" style="font-weight:600;padding-top:12px">${brl(totalPat)}</td>
+    <td></td>
+    <td class="right mono" style="font-weight:600;padding-top:12px;color:var(--accent2)">${brl(totalDiv)}</td>
+    <td></td><td></td>
+  </tr>`;
+
+  const elPatF = document.getElementById('inv-pat-fii');
+  const elRend = document.getElementById('inv-rend-fii');
+  if (elPatF) elPatF.textContent = brl0(totalPat);
+  if (elRend) elRend.textContent = 'Dividendos/m\u00eas: ' + brl(totalDiv);
+  updateFiiDiff();
+  updateInvTotal();
+  refreshInvTicker();
+}
+
+function updateInvTotal() {
+  const patFii   = fiis.reduce((a, f) => a + f.cota * f.qtd, 0);
+  const patAcoes = acoes.reduce((a, ac) => a + ac.cota * ac.qtd, 0);
+
+  // Sync FII and Ações/ETFs into caixinhas
+  const cxFii   = caixinhas.find(c => c.name === 'FII');
+  const cxAcoes = caixinhas.find(c => c.name === 'Ações/ETFs');
+  if (cxFii)   cxFii.real   = patFii;
+  if (cxAcoes) cxAcoes.real = patAcoes;
+
+  // Sync BTC from acoes array
+  const btcAcao = acoes.find(a => a.name.toUpperCase() === 'BTC');
+  const cxBtc   = caixinhas.find(c => c.name === 'BTC');
+  if (btcAcao && cxBtc) cxBtc.real = btcAcao.cota * btcAcao.qtd;
+
+  // Update total metric
+  const el = document.getElementById('inv-pat-total');
+  if (el) el.textContent = brl0(patFii + patAcoes);
+
+  // Re-render patrimônio page totals and chart
+  renderCaixinhas();
+}
+
+// RENDER AÇÕES
+function renderAcoes() {
+  const inlineProv = (i, val) =>
+    `<input type="number" step="0.01" value="${(val||0).toFixed(2)}"
+      onchange="acoes[${i}].prov=parseFloat(this.value)||0;renderAcoes()"
+      style="width:80px;text-align:right;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--accent2);font-family:var(--mono);font-size:13px;padding:2px 4px;outline:none;"
+      onfocus="this.style.borderBottomColor='var(--accent)'" onblur="this.style.borderBottomColor='var(--border2)'">`;
+
+  let totalPat = 0, totalProv = 0;
+  const rows = acoes.map((a, i) => {
+    const pat = a.cota * a.qtd;
+    totalPat  += pat;
+    totalProv += (a.prov || 0);
+    return `<tr>
+      <td><strong>${a.name}</strong></td>
+      <td class="right mono">${brl(a.cota)}</td>
+      <td class="right mono">${a.qtd}</td>
+      <td class="right mono">${brl(pat)}</td>
+      <td class="right">${inlineProv(i, a.prov)}</td>
+      <td><button class="btn-danger" onclick="delAcao(${i})">✕</button></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('acoes-tbody').innerHTML = rows;
+
+  const tfoot = document.getElementById('acoes-tfoot');
+  if (tfoot) tfoot.innerHTML = `<tr>
+    <td colspan="3" style="font-weight:600;padding-top:12px;color:var(--muted)">Total</td>
+    <td class="right mono" style="font-weight:600;padding-top:12px">${brl(totalPat)}</td>
+    <td class="right mono" style="font-weight:600;padding-top:12px;color:var(--accent2)">${brl(totalProv)}</td>
+    <td></td>
+  </tr>`;
+
+  const elPatA = document.getElementById('inv-pat-acoes');
+  const elProv = document.getElementById('inv-prov-acoes');
+  if (elPatA) elPatA.textContent = brl0(totalPat);
+  if (elProv) elProv.textContent = 'Proventos: ' + brl(totalProv);
+  updateAcoesDiff();
+  updateInvTotal();
+  refreshInvTicker();
+}
+
+// Build category options HTML from saidas + renda categories
+const RENDA_CATS = [
+  {value:'entrada',      label:'Entrada'},
+  {value:'caixinha',     label:'Caixinha'},
+  {value:'investimento', label:'Investimento'},
+  {value:'outros',       label:'Outros'},
+];
+
+function catOptions(selected) {
+  const saidasOpts = saidas.map(s => {
+    const sel = s.cat === selected ? ' selected' : '';
+    return '<option value="' + s.cat + '"' + sel + '>' + s.name + '</option>';
+  }).join('');
+  const rendaOpts = RENDA_CATS.map(r => {
+    const sel = r.value === selected ? ' selected' : '';
+    return '<option value="' + r.value + '"' + sel + '>' + r.label + '</option>';
+  }).join('');
+  return '<optgroup label="Saídas">' + saidasOpts + '</optgroup>' +
+         '<optgroup label="Renda &amp; Caixinhas">' + rendaOpts + '</optgroup>';
+}
+
+// Refresh the form category dropdown whenever saidas changes
+function refreshCatDropdown() {
+  const el = document.getElementById('t-cat');
+  if (!el) return;
+  const cur = el.value;
+  el.innerHTML = catOptions(cur);
+}
+
+// RENDER TRANSAÇÕES
+function renderTx() {
+  const totalDesp = txDesp.reduce((a, t) => a + t.val, 0);
+  const totalRend = txRend.reduce((a, t) => a + t.val, 0);
+  document.getElementById('total-desp-badge').textContent = 'Total: ' + brl0(totalDesp);
+  document.getElementById('total-rend-badge').textContent = 'Total: ' + brl0(totalRend);
+
+  const totalSeparar = txDesp.filter(t => t.sep).reduce((a, t) => a + t.val, 0);
+  const elSep = document.getElementById('resumo-separar');
+  if (elSep) elSep.textContent = brl0(totalSeparar);
+
+  const inlineDesc = (tipo, i, val) => {
+    const arr = tipo === 'd' ? 'txDesp' : 'txRend';
+    const escaped = val.replace(/"/g, '&quot;');
+    return '<input value="' + escaped + '" onchange="' + arr + '[' + i + '].desc=this.value"' +
+      ' style="width:100%;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text);font-family:var(--sans);font-size:13px;padding:2px 4px;outline:none;"' +
+      ' onfocus="this.style.borderBottomColor=\'var(--accent)\'"' +
+      ' onblur="this.style.borderBottomColor=\'var(--border2)\'">';
+  };
+
+  const catSelect = (tipo, i, selected) =>
+    '<select onchange="editTxCat(\'' + tipo + '\',' + i + ',this.value)" style="' + SELECT_STYLE + '">' +
+    catOptions(selected) + '</select>';
+
+  document.getElementById('tbody-desp').innerHTML = txDesp.map((t, i) => {
+    const sepStyle = t.sep ? SEP_STYLE_ON : SEP_STYLE_OFF;
+    const sepLabel = t.sep ? 'separar' : '+ separar';
+    const checkStyle = t.paid
+      ? 'background:rgba(15,154,92,0.15);color:var(--accent2);border:1.5px solid rgba(15,154,92,0.4);border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:13px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;line-height:1;'
+      : 'background:transparent;color:transparent;border:1.5px solid var(--border2);border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:13px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;line-height:1;';
+    return '<tr style="' + (t.paid ? 'opacity:0.5;' : '') + '">' +
+      '<td style="padding-right:6px"><button onclick="txDesp[' + i + '].paid=!txDesp[' + i + '].paid;renderTx();saveData()" style="' + checkStyle + '" title="' + (t.paid ? 'Pago' : 'Marcar como pago') + '">&#10003;</button></td>' +
+      '<td style="color:var(--muted)">' + t.data + '</td>' +
+      '<td>' + inlineDesc('d', i, t.desc) + '</td>' +
+      '<td>' + catSelect('d', i, t.cat) + '</td>' +
+      '<td class="right"><input type="number" step="0.01" value="' + t.val.toFixed(2) + '" onchange="editDespVal(' + i + ', this.value)" style="width:100%;text-align:right;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:13px;padding:2px 4px;outline:none;" onfocus="this.style.borderBottomColor=\'var(--accent)\'" onblur="this.style.borderBottomColor=\'var(--border2)\'"></td>' +
+      '<td><button onclick="txDesp[' + i + '].sep=!txDesp[' + i + '].sep;renderTx()" style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;border:1px solid;cursor:pointer;font-family:var(--sans);transition:all .15s;white-space:nowrap;' + sepStyle + '">' + sepLabel + '</button></td>' +
+      '<td><button class="btn-danger" onclick="delTx(\'d\',' + i + ')">&#10005;</button></td>' +
+      '</tr>';
+  }).join('');
+
+  const rendCatSelect = (i, selected) => {
+    const opts = [
+      {value:'entrada', label:'Entrada'},
+      {value:'caixinha', label:'Caixinha'},
+      {value:'investimento', label:'Investimento'},
+      {value:'outros', label:'Outros'},
+    ].map(o => '<option value="' + o.value + '"' + (selected===o.value?' selected':'') + '>' + o.label + '</option>').join('');
+    return '<select onchange="txRend[' + i + '].cat=this.value;renderTx();renderSaidas()" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-family:var(--sans);font-size:12px;padding:4px 6px;outline:none;">' + opts + '</select>';
+  };
+
+  document.getElementById('tbody-rend').innerHTML = txRend.map((t, i) =>
+    `<tr>
+      <td style="color:var(--muted)">${t.data}</td>
+      <td>${inlineDesc('r', i, t.desc)}</td>
+      <td>${rendCatSelect(i, t.cat)}</td>
+      <td class="right"><input type="number" step="0.01" value="${t.val.toFixed(2)}" onchange="txRend[${i}].val=parseFloat(this.value)||0;renderTx();renderSaidas()" style="width:100%;text-align:right;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--accent2);font-family:var(--mono);font-size:13px;padding:2px 4px;outline:none;" onfocus="this.style.borderBottomColor='var(--accent)'" onblur="this.style.borderBottomColor='var(--border2)'"></td>
+      <td><button class="btn-danger" onclick="delTx('r',${i})">✕</button></td>
+    </tr>`).join('');
+
+  refreshCatDropdown();
+  if (window.buildPatChart) window.buildPatChart();
+  if (window.buildBarChart) window.buildBarChart();
+  updateNivel();
+}
+
+function addTx() {
+  const data = document.getElementById('t-data').value || 'Mensal';
+  const desc = document.getElementById('t-desc').value;
+  const val = parseFloat(document.getElementById('t-valor').value) || 0;
+  const tipo = document.getElementById('t-tipo').value;
+  const cat = document.getElementById('t-cat').value;
+  if (!desc) return;
+  const tx = {data, desc, cat, val};
+  if (tipo === 'despesa') txDesp.push(tx);
+  else txRend.push(tx);
+  renderTx();
+  renderSaidas();
+  document.getElementById('t-desc').value = '';
+  document.getElementById('t-valor').value = '';
+}
+
+function editTxCat(tipo, i, val) {
+  if (tipo === 'd') { txDesp[i].cat = val; renderSaidas(); }
+  else txRend[i].cat = val;
+}
+
+function editDespVal(i, val) {
+  txDesp[i].val = parseFloat(val) || 0;
+  renderTx();
+  renderSaidas();
+}
+
+function delTx(tipo, i) {
+  if (tipo === 'd') txDesp.splice(i, 1);
+  else txRend.splice(i, 1);
+  renderTx();
+  renderSaidas();
+}
+
+async function fetchSheets() {
+  const input   = document.getElementById('sheets-id').value.trim();
+  const sheetTab = document.getElementById('sheets-tab').value.trim() || 'Cotacoes';
+  const btn    = document.getElementById('sheets-btn');
+  const status = document.getElementById('fetch-status');
+
+  if (!input) {
+    status.textContent = '✗ Cole o ID ou URL da planilha primeiro';
+    status.style.color = 'var(--danger)';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '⟳ Buscando...';
+  status.textContent = '';
+  localStorage.setItem('sheets_id', input);
+  localStorage.setItem('sheets_tab', sheetTab);
+
+  // Detecta se é um ID publicado (começa com 2PACX) ou ID normal
+  let csvUrl;
+  const isPublished = input.startsWith('2PACX') || input.includes('pubhtml') || input.includes('pub?');
+  const cleanId = input
+    .replace(/.*\/spreadsheets\/d\/e\//, '')
+    .replace(/.*\/spreadsheets\/d\//, '')
+    .replace(/\/pub.*/, '')
+    .replace(/\/edit.*/, '')
+    .trim();
+
+  if (isPublished || cleanId.startsWith('2PACX')) {
+    // Planilha publicada: usar endpoint /pub?output=csv
+    csvUrl = `https://docs.google.com/spreadsheets/d/e/${cleanId}/pub?output=csv&gid=0`;
+  } else {
+    // Planilha normal compartilhada: usar gviz
+    csvUrl = `https://docs.google.com/spreadsheets/d/${cleanId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetTab)}`;
+  }
+
+  try {
+    const proxies = [
+      csvUrl, // direto primeiro
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(csvUrl)}`,
+      `https://corsproxy.io/?${encodeURIComponent(csvUrl)}`,
+      `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(csvUrl)}`,
+    ];
+
+    let text = null;
+    for (const url of proxies) {
+      try {
+        const r = await fetch(url, {signal: AbortSignal.timeout(6000)});
+        if (r.ok) { text = await r.text(); break; }
+      } catch(e) { continue; }
+    }
+    if (!text) throw new Error('Todos os proxies falharam — tente abrir via servidor local');
+
+    // Detecta separador (vírgula, ponto-e-vírgula ou tab)
+    const firstLine = text.trim().split('\n')[0];
+    const sep = firstLine.includes('\t') ? '\t' : firstLine.includes(';') ? ';' : ',';
+
+    const rows = text.trim().split('\n').map(r =>
+      r.split(sep).map(c => c.replace(/^\x22|\x22$/g,'').trim())
+    );
+
+    // Mostra amostra para diagnóstico
+    const sample = rows.slice(0,2).map(r => `[${r.join(' | ')}]`).join('  ');
+    status.textContent = `⟳ Processando — amostra: ${sample}`;
+
+    let atualizados = 0;
+    rows.forEach(([ticker, cotaStr, ...rest]) => {
+      if (!ticker || ticker.toLowerCase() === 'ticker') return;
+      // Limpa ticker: remove espaços, caracteres invisíveis
+      const t = ticker.replace(/\s/g,'').toUpperCase();
+      // Junta todas as colunas após a primeira (caso vírgula decimal tenha partido em várias)
+      const rawCota = [cotaStr, ...(rest||[])].join(',');
+      // Remove R$, espaços, aspas, e troca vírgula decimal por ponto
+      const cotaNorm = rawCota.replace(/R\$\s*/gi,'').replace(/\x22/g,'').replace(/\s/g,'').replace(/\.(?=\d{3})/g,'').replace(',','.');
+      const cota = parseFloat(cotaNorm);
+      if (isNaN(cota) || cota <= 0) return;
+
+      const fii = fiis.find(f => f.name.toUpperCase() === t);
+      if (fii) { fii.cota = cota; atualizados++; }
+
+      const ac = acoes.find(a => a.name.toUpperCase() === t);
+      if (ac) { ac.cota = cota; atualizados++; }
+    });
+
+    renderFIIs();
+    renderAcoes();
+    saveData();
+    const agora = new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+    status.textContent = `✓ ${atualizados} tickers atualizados às ${agora} — amostra: ${sample}`;
+    status.style.color = 'var(--accent2)';
+  } catch(e) {
+    status.textContent = '✗ Falha: ' + e.message;
+    status.style.color = 'var(--danger)';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📊 Google Sheets';
+  }
+}
+
+async function fetchCotacoes() {
+  const btn = document.getElementById('fetch-btn');
+  const status = document.getElementById('fetch-status');
+  btn.disabled = true;
+  btn.textContent = '⟳ Buscando...';
+  status.textContent = '';
+  status.style.color = 'var(--muted)';
+
+  // Yahoo Finance usa sufixo .SA para ativos brasileiros
+  const todosTickers = [
+    ...fiis.map(f => f.name + '.SA'),
+    ...acoes.map(a => a.name + '.SA')
+  ].join('%2C');
+
+  const yahooUrl = 'https://query1.finance.yahoo.com/v7/finance/quote?symbols=' + todosTickers + '&fields=regularMarketPrice,regularMarketChangePercent';
+  const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(yahooUrl);
+
+  try {
+    const res = await fetch(proxyUrl);
+    if (!res.ok) throw new Error('Proxy indisponível (' + res.status + ')');
+    const data = await res.json();
+    const results = data?.quoteResponse?.result || [];
+    if (!results.length) throw new Error('Sem dados retornados pelo Yahoo Finance');
+
+    let atualizados = 0;
+    results.forEach(r => {
+      const symbol = r.symbol.replace('.SA', '');
+      const preco = r.regularMarketPrice;
+      const varP  = r.regularMarketChangePercent;
+      if (!preco) return;
+
+      const fii = fiis.find(f => f.name === symbol);
+      if (fii) { fii.cota = preco; atualizados++; }
+
+      const ac = acoes.find(a => a.name === symbol);
+      if (ac) { ac.cota = preco; if (varP != null) ac.varP = varP; atualizados++; }
+    });
+
+    renderFIIs();
+    renderAcoes();
+    const agora = new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+    status.textContent = `✓ ${atualizados} tickers atualizados às ${agora}`;
+    status.style.color = 'var(--accent2)';
+  } catch (e) {
+    status.textContent = '✗ Falha: ' + e.message;
+    status.style.color = 'var(--danger)';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '⟳ Buscar online (Yahoo Finance)';
+  }
+}
+
+function updateAcoesDiff() {
+  const ref  = parseFloat(document.getElementById('acoes-ref')?.value) || 0;
+  const pat  = acoes.reduce((a, ac) => a + ac.cota * ac.qtd, 0);
+  const diff = pat - ref;
+  const el   = document.getElementById('acoes-diff');
+  if (!el) return;
+  if (ref === 0) { el.textContent = '—'; el.style.color = 'var(--muted)'; return; }
+  el.textContent = (diff >= 0 ? '+' : '') + brl(diff);
+  el.style.color = diff >= 0 ? 'var(--accent2)' : 'var(--danger)';
+  saveData();
+}
+
+function updateFiiDiff() {
+  const ref  = parseFloat(document.getElementById('fii-ref')?.value) || 0;
+  const pat  = fiis.reduce((a, f) => a + f.cota * f.qtd, 0);
+  const diff = pat - ref;
+  const el   = document.getElementById('fii-diff');
+  if (!el) return;
+  if (ref === 0) { el.textContent = '—'; el.style.color = 'var(--muted)'; return; }
+  el.textContent = (diff >= 0 ? '+' : '') + brl(diff);
+  el.style.color = diff >= 0 ? 'var(--accent2)' : 'var(--danger)';
+  saveData();
+}
+
+function refreshInvTicker() {
+  const el = document.getElementById('inv-ticker');
+  if (!el) return;
+  const cur = el.value;
+  const fiiOpts  = fiis.map(f => '<option' + (f.name===cur?' selected':'') + '>' + f.name + '</option>').join('');
+  const acaoOpts = acoes.map(a => '<option' + (a.name===cur?' selected':'') + '>' + a.name + '</option>').join('');
+  el.innerHTML = '<optgroup label="FIIs">' + fiiOpts + '</optgroup>' +
+                 '<optgroup label="Ações/ETFs">' + acaoOpts + '</optgroup>';
+}
+
+function addFii() {
+  const name = document.getElementById('fii-new-name').value.trim().toUpperCase();
+  const tipo = document.getElementById('fii-new-tipo').value;
+  const cota = parseFloat(document.getElementById('fii-new-cota').value) || 0;
+  const qtd  = parseFloat(document.getElementById('fii-new-qtd').value)  || 0;
+  const rend = parseFloat(document.getElementById('fii-new-rend').value) || 0;
+  if (!name) return;
+  fiis.push({name, tipo, cota, pm:0, qtd, rend, dy: cota > 0 ? (rend/cota*100) : 0});
+  renderFIIs();
+  saveData();
+  document.getElementById('fii-new-name').value = '';
+  document.getElementById('fii-new-cota').value = '';
+  document.getElementById('fii-new-qtd').value  = '';
+  document.getElementById('fii-new-rend').value = '';
+}
+
+function delFii(i) {
+  fiis.splice(i, 1);
+  renderFIIs();
+  saveData();
+}
+
+function addAcao() {
+  const name = document.getElementById('acao-new-name').value.trim().toUpperCase();
+  const cota = parseFloat(document.getElementById('acao-new-cota').value) || 0;
+  const qtd  = parseFloat(document.getElementById('acao-new-qtd').value)  || 0;
+  if (!name) return;
+  acoes.push({name, cota, pm:0, qtd, prov:0});
+  renderAcoes();
+  saveData();
+  document.getElementById('acao-new-name').value = '';
+  document.getElementById('acao-new-cota').value = '';
+  document.getElementById('acao-new-qtd').value  = '';
+}
+
+function delAcao(i) {
+  acoes.splice(i, 1);
+  renderAcoes();
+  saveData();
+}
+
+function updateInv() {
+  const ticker = document.getElementById('inv-ticker').value;
+  const cota = parseFloat(document.getElementById('inv-cota').value);
+  const qtd = parseFloat(document.getElementById('inv-qtd').value);
+  const fii = fiis.find(f => f.name === ticker);
+  if (fii) { if (!isNaN(cota)) fii.cota = cota; if (!isNaN(qtd)) fii.qtd = qtd; renderFIIs(); return; }
+  const ac = acoes.find(a => a.name === ticker);
+  if (ac) { if (!isNaN(cota)) ac.cota = cota; if (!isNaN(qtd)) ac.qtd = qtd; renderAcoes(); }
+}
+
+function refreshCxSelect() {
+  const el = document.getElementById('cx-nome');
+  if (!el) return;
+  const cur = el.value;
+  const autoItems = ['FII', 'Ações/ETFs', 'BTC'];
+  el.innerHTML = caixinhas
+    .filter(c => !autoItems.includes(c.name))
+    .map(c => '<option value="' + c.name + '"' + (c.name===cur?' selected':'') + '>' + c.name + '</option>')
+    .join('');
+}
+
+function updateCaixinha() {
+  const nome = document.getElementById('cx-nome').value;
+  const real = parseFloat(document.getElementById('cx-real').value);
+  const meta = parseFloat(document.getElementById('cx-meta').value);
+  const cx = caixinhas.find(c => c.name === nome);
+  if (cx) {
+    if (!isNaN(real)) cx.real = real;
+    if (!isNaN(meta)) cx.plan = meta;
+    renderCaixinhas();
+    document.getElementById('cx-real').value = '';
+    document.getElementById('cx-meta').value = '';
+  }
+}
+
+function addCaixinha() {
+  const name = document.getElementById('cx-new-name').value.trim();
+  const real = parseFloat(document.getElementById('cx-new-real').value) || 0;
+  const meta = parseFloat(document.getElementById('cx-new-meta').value) || 0;
+  if (!name) return;
+  caixinhas.push({name, plan: meta, real, isCaixinha: true, cdi: 0});
+  renderCaixinhas();
+  refreshCxSelect();
+  document.getElementById('cx-new-name').value = '';
+  document.getElementById('cx-new-real').value = '';
+  document.getElementById('cx-new-meta').value = '';
+}
+
+function delCaixinha(i) {
+  caixinhas.splice(i, 1);
+  renderCaixinhas();
+  refreshCxSelect();
+}
+
+function updateCotacoes() {
+  const usd = parseFloat(document.getElementById('q-usd').value) || 5.0568;
+  const sek = parseFloat(document.getElementById('q-sek').value) || 0.5351;
+  const btcUs = parseFloat(document.getElementById('q-btc').value) || 78363;
+  const btcBrl = btcUs * usd;
+  document.getElementById('q-btc-brl').textContent = brl0(btcBrl);
+  const projBrasil = 299 * usd / sek;
+  document.getElementById('q-proj').textContent = brl0(projBrasil * sek);
+  renderRendimentos();
+  saveData();
+}
+
+// SIMULADOR
+let simChart = null;
+function calcSim() {
+  const C = parseFloat(document.getElementById('s-valor').value) || 0;
+  const taxa = (parseFloat(document.getElementById('s-cdi').value) || 0) / 100;
+  const pctCdi = (parseFloat(document.getElementById('s-pct').value) || 100) / 100;
+  const ir = (parseFloat(document.getElementById('s-ir').value) || 0) / 100;
+  const aporte = parseFloat(document.getElementById('s-aporte').value) || 0;
+  const meses = parseInt(document.getElementById('s-meses').value) || 12;
+  const taxaEfetiva = taxa * pctCdi;
+  const taxaMes = Math.pow(1 + taxaEfetiva, 1/12) - 1;
+  const rendMes = C * taxaMes;
+  const rendAno = C * taxaEfetiva;
+  const liqMes = rendMes * (1 - ir);
+
+  let saldo = C;
+  const labels = [], vals = [];
+  for (let i = 0; i <= meses; i++) {
+    labels.push('M' + i);
+    vals.push(parseFloat(saldo.toFixed(2)));
+    saldo = saldo * (1 + taxaMes) + aporte;
+  }
+
+  document.getElementById('s-out-mes').textContent = brl(rendMes);
+  document.getElementById('s-out-ano').textContent = brl(rendAno);
+  document.getElementById('s-out-liq').textContent = brl(liqMes);
+  document.getElementById('s-out-total').textContent = brl(vals[vals.length - 1]);
+
+  const ctx = document.getElementById('chartSim');
+  if (simChart) simChart.destroy();
+  simChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: vals,
+        borderColor: '#5b8dee',
+        backgroundColor: 'rgba(91,141,238,0.08)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: meses <= 24 ? 3 : 0,
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8099', callback: v => 'R$ ' + Math.round(v/1000) + 'k' } },
+        x: { grid: { display: false }, ticks: { color: '#7a8099', maxTicksLimit: 8 } }
+      }
+    }
+  });
+  saveData();
+}
+
+// SIMULADOR FII DISTRIBUIÇÃO
+let simFiiItems = []; // {name, cota, rend, qtd}
+
+function initSimFii() {
+  // If empty, populate from fiis
+  if (simFiiItems.length === 0) {
+    simFiiItems = fiis.map(f => ({name: f.name, cota: f.cota, rend: f.rend, qtd: 0}));
+  } else {
+    // Sync current cotas and rend from fiis/acoes arrays
+    simFiiItems.forEach(item => {
+      const fii = fiis.find(f => f.name === item.name);
+      if (fii) { item.cota = fii.cota; item.rend = fii.rend; return; }
+      const ac = acoes.find(a => a.name === item.name);
+      if (ac) { item.cota = ac.cota; }
+    });
+  }
+  refreshSimFiiTicker();
+  renderSimFii();
+}
+
+function refreshSimFiiTicker() {
+  const el = document.getElementById('sim-fii-new-ticker');
+  if (!el) return;
+  const allTickers = [...fiis.map(f => f.name), ...acoes.map(a => a.name)];
+  const existing = simFiiItems.map(i => i.name);
+  const available = allTickers.filter(t => !existing.includes(t));
+  el.innerHTML = available.map(t => `<option>${t}</option>`).join('');
+}
+
+function addSimFiiItem() {
+  const el = document.getElementById('sim-fii-new-ticker');
+  if (!el || !el.value) return;
+  const ticker = el.value;
+  const fii = fiis.find(f => f.name === ticker);
+  const ac  = acoes.find(a => a.name === ticker);
+  const src = fii || ac;
+  if (!src) return;
+  simFiiItems.push({name: ticker, cota: src.cota, rend: fii ? fii.rend : 0, qtd: 0});
+  refreshSimFiiTicker();
+  renderSimFii();
+}
+
+function renderSimFii() {
+  const total = parseFloat(document.getElementById('sim-fii-total')?.value) || 0;
+  const tbody = document.getElementById('sim-fii-tbody');
+  if (!tbody) return;
+
+  let alocado = 0, dividendos = 0;
+
+  tbody.innerHTML = simFiiItems.map((item, i) => {
+    const subtotal = item.cota * item.qtd;
+    const div = item.rend * item.qtd;
+    alocado    += subtotal;
+    dividendos += div;
+    return `<tr>
+      <td><strong>${item.name}</strong></td>
+      <td class="right mono">${brl(item.cota)}</td>
+      <td class="right">
+        <input type="number" min="0" step="1" value="${item.qtd}"
+          onchange="simFiiItems[${i}].qtd=parseInt(this.value)||0;renderSimFii();saveData()"
+          style="width:70px;text-align:right;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:13px;padding:2px 4px;outline:none;"
+          onfocus="this.style.borderBottomColor='var(--accent)'" onblur="this.style.borderBottomColor='var(--border2)'">
+      </td>
+      <td class="right mono">${brl(subtotal)}</td>
+      <td class="right mono">${brl(item.rend)}</td>
+      <td class="right mono" style="color:var(--accent2)">${brl(div)}</td>
+      <td><button class="btn-danger" onclick="simFiiItems.splice(${i},1);refreshSimFiiTicker();renderSimFii()">✕</button></td>
+    </tr>`;
+  }).join('');
+
+  const saldo = total - alocado;
+  const rendPct = alocado > 0 ? (dividendos / alocado * 100) : 0;
+  const elAl  = document.getElementById('sim-fii-alocado');
+  const elSal = document.getElementById('sim-fii-saldo');
+  const elDiv = document.getElementById('sim-fii-div');
+  const elPct = document.getElementById('sim-fii-pct');
+  if (elAl)  elAl.textContent  = brl0(alocado);
+  if (elSal) { elSal.textContent = brl0(saldo); elSal.style.color = saldo < 0 ? 'var(--danger)' : saldo === 0 ? 'var(--accent2)' : 'var(--text)'; }
+  if (elDiv) elDiv.textContent  = brl(dividendos);
+  if (elPct) { elPct.textContent = rendPct > 0 ? rendPct.toFixed(2) + '%' : '—'; elPct.style.color = rendPct > 0 ? 'var(--accent2)' : 'var(--muted)'; }
+}
+
+function calcSimFii() { renderSimFii(); saveData(); }
+
+// MERCADO CHART
+let mercChart = null;
+function buildMercChart() {
+  const ctx = document.getElementById('chartMerc');
+  if (!ctx) return;
+
+  // Group by category
+  const grouped = {};
+  mercItems.forEach(m => {
+    grouped[m.cat] = (grouped[m.cat] || 0) + m.val;
+  });
+  const labels = Object.keys(grouped);
+  const data   = Object.values(grouped);
+  const total  = data.reduce((a, b) => a + b, 0);
+  const COLORS = ['#5b8dee','#3ecf8e','#f5a623','#9b72f2','#e05555','#e87d3e','#4bc9a8','#c97cb9'];
+
+  if (mercChart) mercChart.destroy();
+  mercChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{ data, backgroundColor: COLORS.slice(0, labels.length), borderWidth: 0, hoverOffset: 6 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '60%',
+      plugins: { legend: { display: false } }
+    }
+  });
+
+  const leg = document.getElementById('merc-legend');
+  if (leg) {
+    leg.innerHTML = labels.map((l, i) => {
+      const pct = total > 0 ? (data[i] / total * 100).toFixed(1) : '0';
+      return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">' +
+        '<div style="width:10px;height:10px;border-radius:3px;background:' + COLORS[i] + ';flex-shrink:0"></div>' +
+        '<div style="flex:1;font-size:13px">' + l + '</div>' +
+        '<div style="font-family:var(--mono);font-size:12px;color:var(--muted)">' + pct + '%</div>' +
+        '<div style="font-family:var(--mono);font-size:13px">' + brl0(data[i]) + '</div>' +
+        '</div>';
+    }).join('');
+  }
+}
+
+// CHARTS
+let barChart = null;
+function buildBarChart() {
+  const totalPlan    = saidas.reduce((a, s) => a + s.plan, 0);
+  const totalSaidaReal = txDesp.reduce((a, t) => a + t.val, 0);
+  const totalEntrada   = txRend.filter(t => t.cat === 'entrada').reduce((a, t) => a + t.val, 0);
+
+  const barCtx = document.getElementById('chartBar');
+  if (barChart) barChart.destroy();
+  barChart = new Chart(barCtx, {
+    type: 'bar',
+    data: {
+      labels: ['Entradas', 'Saídas'],
+      datasets: [
+        { label: 'Planejado', data: [totalPlan, totalPlan], backgroundColor: 'rgba(91,141,238,0.3)', borderRadius: 6 },
+        { label: 'Real',      data: [totalEntrada, totalSaidaReal], backgroundColor: ['rgba(62,207,142,0.7)', 'rgba(224,85,85,0.7)'], borderRadius: 6 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8099', callback: v => 'R$ ' + (v/1000).toFixed(0) + 'k' } },
+        x: { grid: { display: false }, ticks: { color: '#7a8099' } }
+      }
+    }
+  });
+  window.buildBarChart = buildBarChart;
+}
+
+function buildCharts() {
+  buildBarChart();
+
+  const patColors = ['#5b8dee','#3ecf8e','#f5a623','#9b72f2','#e05555','#e87d3e','#4bc9a8','#c97cb9','#7bc97b','#c9b87b'];
+  let patChart = null;
+  function buildPatChart() {
+    const patLabels = caixinhas.map(c => c.name);
+    const patData   = caixinhas.map(c => c.real);
+    const total     = patData.reduce((a,b) => a+b, 0);
+
+    const patCtx = document.getElementById('chartPat');
+    if (patChart) patChart.destroy();
+    patChart = new Chart(patCtx, {
+      type: 'doughnut',
+      data: { labels: patLabels, datasets: [{ data: patData, backgroundColor: patColors.slice(0, patLabels.length), borderWidth: 0, hoverOffset: 6 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false, cutout: '65%',
+        plugins: { legend: { display: false } }
+      }
+    });
+
+    document.getElementById('pat-legend').innerHTML = patLabels.map((l, i) => {
+      const p = total > 0 ? (patData[i] / total * 100).toFixed(1) : '0.0';
+      return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <div style="width:10px;height:10px;border-radius:3px;background:${patColors[i]};flex-shrink:0"></div>
+        <div style="flex:1;font-size:13px">${l}</div>
+        <div style="font-family:var(--mono);font-size:13px;color:#7a8099">${p}%</div>
+        <div style="font-family:var(--mono);font-size:13px">${brl0(patData[i])}</div>
+      </div>`;
+    }).join('');
+  }
+  buildPatChart();
+  window.buildPatChart = buildPatChart;
+}
+
+// ─── FIREBASE ───────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyCgtiPkwcLBWTM6qIvP17xSsH-kD63Bdgw",
+  authDomain: "painel-financeiro-5e20e.firebaseapp.com",
+  databaseURL: "https://painel-financeiro-5e20e-default-rtdb.firebaseio.com",
+  projectId: "painel-financeiro-5e20e",
+  storageBucket: "painel-financeiro-5e20e.firebasestorage.app",
+  messagingSenderId: "596697060845",
+  appId: "1:596697060845:web:0d8448a341656c91dac3e4"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.database();
+
+let dbSaveTimeout = null;
+
+function saveData() {
+  if (!auth.currentUser) return;
+  const data = {
+    saidas, caixinhas, txDesp, txRend, fiis, acoes, ccItems, mercItems,
+    fiiRef: document.getElementById('fii-ref')?.value || '',
+    acoesRef: document.getElementById('acoes-ref')?.value || '',
+    simValor: document.getElementById('s-valor')?.value || '20000',
+    simCdi:   document.getElementById('s-cdi')?.value   || '14.4',
+    simPct:   document.getElementById('s-pct')?.value   || '100',
+    simIr:    document.getElementById('s-ir')?.value    || '15',
+    simAporte:document.getElementById('s-aporte')?.value|| '0',
+    simMeses: document.getElementById('s-meses')?.value || '12',
+    simFiiItems,
+    simFiiTotal: document.getElementById('sim-fii-total')?.value || '',
+    saldoInicial: document.getElementById('saldo-inicial')?.value || '6',
+    cdiBase: document.getElementById('cdi-base-cx')?.value || '14.4',
+    usd: document.getElementById('q-usd')?.value || '5.0568',
+    sek: document.getElementById('q-sek')?.value || '0.5351',
+    btc: document.getElementById('q-btc')?.value || '78363.04',
+  };
+  clearTimeout(dbSaveTimeout);
+  dbSaveTimeout = setTimeout(() => {
+    db.ref('painel').set(data).catch(e => console.warn('Save error:', e));
+  }, 1000);
+}
+
+function applyData(data) {
+  if (!data) return;
+  try {
+    if (data.saidas)    saidas.splice(0, saidas.length, ...data.saidas);
+    if (data.caixinhas) caixinhas.splice(0, caixinhas.length, ...data.caixinhas);
+    if (data.txDesp)    txDesp.splice(0, txDesp.length, ...data.txDesp);
+    if (data.txRend)    txRend.splice(0, txRend.length, ...data.txRend);
+    if (data.fiis)      fiis.splice(0, fiis.length, ...data.fiis);
+    if (data.acoes)     acoes.splice(0, acoes.length, ...data.acoes);
+    if (data.ccItems)   ccItems.splice(0, ccItems.length, ...data.ccItems);
+    if (data.mercItems) mercItems.splice(0, mercItems.length, ...data.mercItems);
+    if (data.fiiRef   !== undefined) { const el = document.getElementById('fii-ref');   if (el) el.value = data.fiiRef; }
+    if (data.acoesRef !== undefined) { const el = document.getElementById('acoes-ref'); if (el) el.value = data.acoesRef; }
+    if (data.simValor) { const el = document.getElementById('s-valor');  if (el) el.value = data.simValor; }
+    if (data.simCdi)   { const el = document.getElementById('s-cdi');    if (el) el.value = data.simCdi; }
+    if (data.simPct)   { const el = document.getElementById('s-pct');    if (el) el.value = data.simPct; }
+    if (data.simIr)    { const el = document.getElementById('s-ir');     if (el) el.value = data.simIr; }
+    if (data.simAporte){ const el = document.getElementById('s-aporte'); if (el) el.value = data.simAporte; }
+    if (data.simMeses) { const el = document.getElementById('s-meses');  if (el) el.value = data.simMeses; }
+    if (data.simFiiItems) simFiiItems.splice(0, simFiiItems.length, ...data.simFiiItems);
+    if (data.simFiiTotal) { const el = document.getElementById('sim-fii-total'); if (el) el.value = data.simFiiTotal; }
+    if (data.saldoInicial) { const el = document.getElementById('saldo-inicial'); if (el) el.value = data.saldoInicial; }
+    if (data.cdiBase)      { const el = document.getElementById('cdi-base-cx');   if (el) el.value = data.cdiBase; }
+    if (data.usd)          { const el = document.getElementById('q-usd');         if (el) el.value = data.usd; }
+    if (data.sek)          { const el = document.getElementById('q-sek');         if (el) el.value = data.sek; }
+    if (data.btc)          { const el = document.getElementById('q-btc');         if (el) el.value = data.btc; }
+    const sid  = localStorage.getItem('sheets_id');
+    const stab = localStorage.getItem('sheets_tab');
+    if (sid)  { const el = document.getElementById('sheets-id');  if (el) el.value = sid; }
+    if (stab) { const el = document.getElementById('sheets-tab'); if (el) el.value = stab; }
+  } catch(e) { console.warn('Apply data error:', e); }
+}
+
+function fazerLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const senha = document.getElementById('login-senha').value;
+  const erro  = document.getElementById('login-erro');
+  erro.style.display = 'none';
+  auth.signInWithEmailAndPassword(email, senha).catch(() => {
+    erro.textContent = 'Email ou senha incorretos.';
+    erro.style.display = 'block';
+  });
+}
+
+document.getElementById('login-senha').addEventListener('keydown', e => {
+  if (e.key === 'Enter') fazerLogin();
+});
+
+// Auto-save wrappers
+const _origRenderSaidas    = renderSaidas;
+const _origRenderCaixinhas = renderCaixinhas;
+const _origRenderTx        = renderTx;
+renderSaidas    = (...a) => { _origRenderSaidas(...a);    saveData(); };
+renderCaixinhas = (...a) => { _origRenderCaixinhas(...a); saveData(); };
+renderTx        = (...a) => { _origRenderTx(...a);        saveData(); };
+
+function renderAll() {
+  renderSaidas();
+  renderCaixinhas();
+  renderRendimentos();
+  renderFIIs();
+  renderAcoes();
+  renderTx();
+  renderCcItems();
+  renderMercItems();
+  refreshCatDropdown();
+  refreshCxSelect();
+  updateNivel();
+  updateCotacoes();
+  setTimeout(buildCharts, 50);
+}
+
+// Auth state — show login or app
+auth.onAuthStateChanged(user => {
+  if (user) {
+    document.getElementById('login-overlay').style.display = 'none';
+    document.getElementById('app-shell').style.display = 'block';
+    db.ref('painel').once('value').then(snap => {
+      applyData(snap.val());
+      renderAll();
+    });
+  } else {
+    document.getElementById('login-overlay').style.display = 'flex';
+    document.getElementById('app-shell').style.display = 'none';
+  }
+});
+
+// PWA
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/Painel-Financeiro/service-worker.js');
+  });
+}
+</script>
+</body>
+</html>
