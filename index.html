@@ -643,7 +643,7 @@ th.right { text-align: right; }
         <span class="badge badge-warn" id="cc-total-badge">Total: R$ 0</span>
       </div>
       <table>
-        <thead><tr><th>Item</th><th class="right">Valor (R$)</th><th class="right">% do total</th><th></th></tr></thead>
+        <thead><tr><th></th><th>Item</th><th class="right">Valor (R$)</th><th class="right">% do total</th><th></th></tr></thead>
         <tbody id="cc-tbody"></tbody>
       </table>
       <div style="display:flex;gap:8px;align-items:flex-end;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
@@ -995,10 +995,15 @@ let txRend = [
 // CARTÃO DE CRÉDITO
 function renderCcItems() {
   const total = ccItems.reduce((a, c) => a + c.val, 0);
+  const totalPago = ccItems.filter(c => c.paid).reduce((a, c) => a + c.val, 0);
 
   document.getElementById('cc-tbody').innerHTML = ccItems.map((c, i) => {
     const pct = total > 0 ? (c.val / total * 100).toFixed(1) : '0.0';
-    return `<tr>
+    const checkStyle = c.paid
+      ? 'background:rgba(15,154,92,0.15);color:var(--accent2);border:1.5px solid rgba(15,154,92,0.4);border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:13px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;line-height:1;'
+      : 'background:transparent;color:transparent;border:1.5px solid var(--border2);border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:13px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;line-height:1;';
+    return `<tr style="${c.paid ? 'opacity:0.5;' : ''}">
+      <td style="padding-right:6px"><button onclick="ccItems[${i}].paid=!ccItems[${i}].paid;renderCcItems()" style="${checkStyle}" title="${c.paid ? 'Debitado' : 'Marcar como debitado'}">&#10003;</button></td>
       <td><input value="${c.name.replace(/"/g,'&quot;')}"
         onchange="ccItems[${i}].name=this.value"
         style="width:100%;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text);font-family:var(--sans);font-size:13px;padding:2px 4px;outline:none;"
@@ -1013,8 +1018,21 @@ function renderCcItems() {
       <td><button class="btn-danger" onclick="delCcItem(${i})">✕</button></td>
     </tr>`;
   }).join('') + `<tr style="font-weight:600;border-top:1px solid var(--border2)">
+    <td></td>
     <td>Total mensal</td>
     <td class="right mono" style="color:var(--warn)">${brl(total)}</td>
+    <td></td><td></td>
+  </tr>
+  <tr style="font-size:12px">
+    <td></td>
+    <td style="color:var(--accent2)">Já debitado</td>
+    <td class="right mono" style="color:var(--accent2)">${brl(totalPago)}</td>
+    <td></td><td></td>
+  </tr>
+  <tr style="font-size:12px">
+    <td></td>
+    <td style="color:var(--muted)">A debitar</td>
+    <td class="right mono" style="color:var(--muted)">${brl(total - totalPago)}</td>
     <td></td><td></td>
   </tr>`;
 
@@ -1030,7 +1048,7 @@ function addCcItem() {
   const name = document.getElementById('cc-new-name').value.trim();
   const val  = parseFloat(document.getElementById('cc-new-val').value) || 0;
   if (!name) return;
-  ccItems.push({name, val});
+  ccItems.push({name, val, paid:false});
   renderCcItems();
   document.getElementById('cc-new-name').value = '';
   document.getElementById('cc-new-val').value  = '';
