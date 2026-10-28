@@ -1523,7 +1523,21 @@ function renderTx() {
       '<td><button onclick="txDesp[' + i + '].sep=!txDesp[' + i + '].sep;renderTx()" style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;border:1px solid;cursor:pointer;font-family:var(--sans);transition:all .15s;white-space:nowrap;' + sepStyle + '">' + sepLabel + '</button></td>' +
       '<td><button class="btn-danger" onclick="delTx(\'d\',' + i + ')">&#10005;</button></td>' +
       '</tr>';
-  }).join('');
+  }).join('') + (txDesp.length ? (() => {
+    const totalPagoDesp = txDesp.filter(t => t.paid).reduce((a, t) => a + t.val, 0);
+    return '<tr style="font-weight:600;border-top:1px solid var(--border2)">' +
+        '<td></td><td></td><td>Total</td><td></td>' +
+        '<td class="right mono" style="color:var(--warn)">' + brl(totalDesp) + '</td><td></td><td></td>' +
+      '</tr>' +
+      '<tr style="font-size:12px">' +
+        '<td></td><td></td><td style="color:var(--accent2)">Já debitado</td><td></td>' +
+        '<td class="right mono" style="color:var(--accent2)">' + brl(totalPagoDesp) + '</td><td></td><td></td>' +
+      '</tr>' +
+      '<tr style="font-size:12px">' +
+        '<td></td><td></td><td style="color:var(--muted)">A debitar</td><td></td>' +
+        '<td class="right mono" style="color:var(--muted)">' + brl(totalDesp - totalPagoDesp) + '</td><td></td><td></td>' +
+      '</tr>';
+  })() : '');
 
   const rendCatSelect = (i, selected) => {
     const opts = [
